@@ -1,0 +1,309 @@
+import SwiftUI
+
+// MARK: - Profile Tab View
+struct ProfileTabView: View {
+    @EnvironmentObject var viewModel: OnsenViewModel
+    @State private var showingNameEdit = false
+    @State private var showingShare = false
+    @State private var newName = ""
+
+    var body: some View {
+        NavigationStack {
+            List {
+                // ─── ユーザー情報 ───
+                Section {
+                    HStack(spacing: 16) {
+                        ZStack {
+                            Circle()
+                                .fill(
+                                    LinearGradient(
+                                        colors: [.orange.opacity(0.6), .red.opacity(0.4)],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                                .frame(width: 72, height: 72)
+                            Image(systemName: viewModel.currentTitle.icon)
+                                .font(.system(size: 32))
+                                .foregroundStyle(.white)
+                        }
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(viewModel.userName)
+                                .font(.title2)
+                                .fontWeight(.bold)
+                            Text(viewModel.currentTitle.name)
+                                .font(.subheadline)
+                                .foregroundStyle(viewModel.currentTitle.color)
+                            Text("\(viewModel.uniqueVisitCount)か所制覇")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Spacer()
+                        Button {
+                            newName = viewModel.userName
+                            showingNameEdit = true
+                        } label: {
+                            Image(systemName: "pencil.circle.fill")
+                                .font(.title2)
+                                .foregroundStyle(.orange)
+                        }
+                    }
+                    .padding(.vertical, 8)
+                }
+
+                // ─── マイ統計 ───
+                Section("マイ統計") {
+                    NavigationLink {
+                        StatsDetailFullView()
+                    } label: {
+                        Label("詳細統計を見る", systemImage: "chart.bar.fill")
+                    }
+
+                    NavigationLink {
+                        VisitedPrefecturesView()
+                    } label: {
+                        Label("制覇した都道府県 (\(viewModel.visitedPrefectures.count))", systemImage: "map.fill")
+                    }
+                }
+
+                // ─── シェア ───
+                Section("友達とシェア") {
+                    Button {
+                        showingShare = true
+                    } label: {
+                        Label("実績をシェアする", systemImage: "square.and.arrow.up")
+                            .foregroundStyle(.orange)
+                    }
+
+                    ShareLink(item: viewModel.shareText()) {
+                        Label("テキストでシェア", systemImage: "text.bubble")
+                            .foregroundStyle(.blue)
+                    }
+                }
+
+                // ─── 広告 ───
+                Section {
+                    AdBannerView(adUnitID: "ca-app-pub-XXXXXXXXXXXXXXXX/XXXXXXXXXX")
+                        .listRowInsets(EdgeInsets())
+                }
+
+                // ─── アプリ情報 ───
+                Section("アプリについて") {
+                    HStack {
+                        Label("バージョン", systemImage: "info.circle")
+                        Spacer()
+                        Text("1.0.0")
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Button {
+                        openReviewPage()
+                    } label: {
+                        Label("App Store でレビュー", systemImage: "star.bubble")
+                            .foregroundStyle(.yellow)
+                    }
+
+                    Link(destination: URL(string: "https://example.com/privacy")!) {
+                        Label("プライバシーポリシー", systemImage: "hand.raised.fill")
+                    }
+
+                    Link(destination: URL(string: "https://example.com/terms")!) {
+                        Label("利用規約", systemImage: "doc.text")
+                    }
+                }
+
+                // ─── データ管理 ───
+                Section("データ管理") {
+                    NavigationLink {
+                        DataManagementView()
+                    } label: {
+                        Label("データ管理", systemImage: "externaldrive.fill")
+                    }
+                }
+            }
+            .navigationTitle("プロフィール")
+            .sheet(isPresented: $showingShare) {
+                ShareAchievementView()
+            }
+            .alert("名前を変更", isPresented: $showingNameEdit) {
+                TextField("ニックネーム", text: $newName)
+                Button("変更") {
+                    if !newName.trimmingCharacters(in: .whitespaces).isEmpty {
+                        viewModel.updateUserName(newName.trimmingCharacters(in: .whitespaces))
+                    }
+                }
+                Button("キャンセル", role: .cancel) {}
+            } message: {
+                Text("表示名を入力してください")
+            }
+        }
+    }
+
+    private func openReviewPage() {
+        // App Store の URL（ストア公開後に実際の App ID に変更）
+        if let url = URL(string: "itms-apps://itunes.apple.com/app/idYOUR_APP_ID?action=write-review") {
+            UIApplication.shared.open(url)
+        }
+    }
+}
+
+// MARK: - Stats Detail Full View
+struct StatsDetailFullView: View {
+    @EnvironmentObject var viewModel: OnsenViewModel
+
+    var avgRating: Double {
+        let ratings = viewModel.visits.map { Double($0.rating) }
+        return ratings.isEmpty ? 0 : ratings.reduce(0, +) / Double(ratings.count)
+    }
+
+    var mostPopularMood: Visit.Mood? {
+        let moods = viewModel.visits.map { $0.mood }
+        return moods.max(by: { a, b in
+            moods.filter { $0 == a }.count < moods.filter { $0 == b }.count
+        })
+    }
+
+    var body: some View {
+        List {
+            Section("訪問統計") {
+                StatRow(label: "訪問した温泉数（ユニーク）", value: "\(viewModel.uniqueVisitCount)か所",  icon: "mappin.circle.fill", color: .orange)
+                StatRow(label: "総入浴回数",                value: "\(viewModel.totalVisitCount)回",    icon: "drop.fill",           color: .blue)
+                StatRow(label: "制覇した都道府県",           value: "\(viewModel.visitedPrefectures.count)都道府県", icon: "map.fill", color: .green)
+                StatRow(label: "平均評価",
+                        value: String(format: "%.1f ★", avgRating),
+                        icon: "star.fill", color: .yellow)
+            }
+
+            if let mood = mostPopularMood {
+                Section("気分統計") {
+                    StatRow(label: "一番多かった気分",
+                            value: "\(mood.icon) \(mood.rawValue)",
+                            icon: "face.smiling", color: .pink)
+                }
+            }
+
+            Section("泉質ランキング（訪問済みの温泉）") {
+                ForEach(springQualityRanking(), id: \.key) { kv in
+                    HStack {
+                        Text(kv.key)
+                            .font(.subheadline)
+                        Spacer()
+                        Text("\(kv.value)か所")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+        .navigationTitle("詳細統計")
+    }
+
+    private func springQualityRanking() -> [(key: String, value: Int)] {
+        var counts: [String: Int] = [:]
+        for onsen in viewModel.visitedOnsens {
+            if let quality = onsen.springQuality {
+                counts[quality, default: 0] += 1
+            }
+        }
+        return counts.sorted { $0.value > $1.value }.map { (key: $0.key, value: $0.value) }
+    }
+}
+
+// MARK: - Visited Prefectures View
+struct VisitedPrefecturesView: View {
+    @EnvironmentObject var viewModel: OnsenViewModel
+
+    let allPrefectures = [
+        "北海道", "青森県", "岩手県", "宮城県", "秋田県", "山形県", "福島県",
+        "茨城県", "栃木県", "群馬県", "埼玉県", "千葉県", "東京都", "神奈川県",
+        "新潟県", "富山県", "石川県", "福井県", "山梨県", "長野県", "岐阜県",
+        "静岡県", "愛知県", "三重県", "滋賀県", "京都府", "大阪府", "兵庫県",
+        "奈良県", "和歌山県", "鳥取県", "島根県", "岡山県", "広島県", "山口県",
+        "徳島県", "香川県", "愛媛県", "高知県", "福岡県", "佐賀県", "長崎県",
+        "熊本県", "大分県", "宮崎県", "鹿児島県", "沖縄県"
+    ]
+
+    var body: some View {
+        List {
+            Section {
+                HStack {
+                    Text("制覇済み")
+                    Spacer()
+                    Text("\(viewModel.visitedPrefectures.count) / 47")
+                        .fontWeight(.bold)
+                        .foregroundStyle(.orange)
+                }
+            }
+
+            ForEach(allPrefectures, id: \.self) { pref in
+                let isVisited = viewModel.visitedPrefectures.contains(pref)
+                let count = viewModel.visitedOnsens.filter { $0.prefecture == pref }.count
+
+                HStack {
+                    Image(systemName: isVisited ? "checkmark.circle.fill" : "circle")
+                        .foregroundStyle(isVisited ? .orange : Color(.systemGray4))
+                    Text(pref)
+                        .foregroundStyle(isVisited ? .primary : .secondary)
+                    Spacer()
+                    if count > 0 {
+                        Text("\(count)か所")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                    }
+                }
+            }
+        }
+        .navigationTitle("制覇した都道府県")
+    }
+}
+
+// MARK: - Data Management View
+struct DataManagementView: View {
+    @EnvironmentObject var viewModel: OnsenViewModel
+    @State private var showingClearAlert = false
+
+    var body: some View {
+        List {
+            Section {
+                HStack {
+                    Label("日記エントリー数", systemImage: "book.fill")
+                    Spacer()
+                    Text("\(viewModel.visits.count)件")
+                        .foregroundStyle(.secondary)
+                }
+                HStack {
+                    Label("訪問した温泉数", systemImage: "mappin.fill")
+                    Spacer()
+                    Text("\(viewModel.uniqueVisitCount)か所")
+                        .foregroundStyle(.secondary)
+                }
+            } header: {
+                Text("保存データ")
+            }
+
+            Section {
+                Button(role: .destructive) {
+                    showingClearAlert = true
+                } label: {
+                    Label("すべてのデータを削除", systemImage: "trash.fill")
+                }
+            } header: {
+                Text("危険な操作")
+            } footer: {
+                Text("削除したデータは元に戻せません。")
+            }
+        }
+        .navigationTitle("データ管理")
+        .alert("データを削除しますか？", isPresented: $showingClearAlert) {
+            Button("削除する", role: .destructive) {
+                // データクリア処理
+                viewModel.visits.forEach { viewModel.deleteVisit($0) }
+            }
+            Button("キャンセル", role: .cancel) {}
+        } message: {
+            Text("すべての訪問記録と日記が削除されます。この操作は取り消せません。")
+        }
+    }
+}
