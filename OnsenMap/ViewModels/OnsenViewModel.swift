@@ -227,6 +227,12 @@ final class OnsenViewModel: ObservableObject {
         let oneWeekAgo = Date().addingTimeInterval(-7 * 24 * 3600)
         if visits.filter({ $0.date >= oneWeekAgo }).count >= 3 { nb.insert("weekly_visitor") }
 
+        // 夜の湯（20時以降に入浴）
+        let cal = Calendar.current
+        if visits.contains(where: { cal.component(.hour, from: $0.date) >= 20 }) {
+            nb.insert("night_bath")
+        }
+
         // 秘湯バッジ（秘湯を1か所訪問）
         let visitedSecretIds = Set(visitedOnsens.filter { $0.facilities.contains("秘湯") }.map { $0.id })
         if !visitedSecretIds.isEmpty { nb.insert("secret_onsen") }

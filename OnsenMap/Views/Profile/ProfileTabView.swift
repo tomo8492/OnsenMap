@@ -68,19 +68,17 @@ struct ProfileTabView: View {
                     }
                 }
 
-                // ─── シェア ───
+                // ─── 友達とシェア ───
                 Section("友達とシェア") {
                     Button {
                         showingShare = true
                     } label: {
-                        Label("実績をシェアする", systemImage: "square.and.arrow.up")
+                        Label("シェアハブを開く", systemImage: "person.2.wave.2.fill")
                             .foregroundStyle(.orange)
                     }
-
-                    ShareLink(item: viewModel.shareText()) {
-                        Label("テキストでシェア", systemImage: "text.bubble")
-                            .foregroundStyle(.blue)
-                    }
+                    Text("画像シェア・QRコード・記録のエクスポート/インポートができます")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
 
                 // ─── 広告 ───
@@ -125,7 +123,7 @@ struct ProfileTabView: View {
             }
             .navigationTitle("プロフィール")
             .sheet(isPresented: $showingShare) {
-                ShareAchievementView()
+                SocialShareView()
             }
             .alert("名前を変更", isPresented: $showingNameEdit) {
                 TextField("ニックネーム", text: $newName)

@@ -44,7 +44,7 @@ struct AchievementsTabView: View {
                 }
             }
             .sheet(isPresented: $showingShareSheet) {
-                ShareAchievementView()
+                SocialShareView()
             }
         }
     }

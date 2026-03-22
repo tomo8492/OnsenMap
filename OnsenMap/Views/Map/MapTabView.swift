@@ -12,11 +12,51 @@ struct MapTabView: View {
             span: MKCoordinateSpan(latitudeDelta: 15, longitudeDelta: 15)
         )
     )
+    /// マップの現在の表示リージョン（ビューポートフィルタリング用）
+    @State private var visibleRegion = MKCoordinateRegion(
+        center: CLLocationCoordinate2D(latitude: 36.5, longitude: 136.0),
+        span: MKCoordinateSpan(latitudeDelta: 15, longitudeDelta: 15)
+    )
     @State private var selectedOnsen: Onsen?
-    @State private var showingDetail    = false
-    @State private var showingSearch    = false
-    @State private var showingFilter    = false
-    @State private var mapStyle: MapStyle = .standard
+    @State private var showingDetail       = false
+    @State private var showingSearch       = false
+    @State private var showingFilter       = false
+    @State private var showingAddCustom    = false
+    @State private var mapStyle: MapStyle  = .standard
+
+    /// ビューポート内のピンのみをレンダリング（最大500件でパフォーマンス確保）
+    var visibleOnsens: [Onsen] {
+        let lat   = visibleRegion.center.latitude
+        let lon   = visibleRegion.center.longitude
+        let dLat  = visibleRegion.span.latitudeDelta
+        let dLon  = visibleRegion.span.longitudeDelta
+        let buf   = 0.25   // 20%バッファ（スクロール時のちらつき防止）
+
+        // 極端に広域のとき（日本全体表示など）は訪問済みのみ表示してUIを保護
+        if dLat > 8.0 {
+            let visited = viewModel.filteredOnsens.filter { viewModel.isVisited($0) }
+            let unvisited = viewModel.filteredOnsens.filter { !viewModel.isVisited($0) }
+            // 訪問済みは全表示、未訪問は最大200件
+            return visited + Array(unvisited.prefix(200))
+        }
+
+        let north = lat + dLat * (0.5 + buf)
+        let south = lat - dLat * (0.5 + buf)
+        let east  = lon + dLon * (0.5 + buf)
+        let west  = lon - dLon * (0.5 + buf)
+
+        let inView = viewModel.filteredOnsens.filter {
+            $0.latitude  >= south && $0.latitude  <= north &&
+            $0.longitude >= west  && $0.longitude <= east
+        }
+        // 中域（1〜8度）は最大500件にキャップ（訪問済み優先）
+        if inView.count > 500 {
+            let vis   = inView.filter { viewModel.isVisited($0) }
+            let unvis = inView.filter { !viewModel.isVisited($0) }
+            return vis + Array(unvis.prefix(500 - vis.count))
+        }
+        return inView
+    }
 
     var body: some View {
         NavigationStack {
@@ -26,7 +66,7 @@ struct MapTabView: View {
                 Map(position: $cameraPosition) {
                     UserAnnotation()
 
-                    ForEach(viewModel.filteredOnsens) { onsen in
+                    ForEach(visibleOnsens) { onsen in
                         Annotation(onsen.name, coordinate: onsen.coordinate) {
                             OnsenPinView(
                                 onsen: onsen,
@@ -44,6 +84,9 @@ struct MapTabView: View {
                     MapUserLocationButton()
                     MapCompass()
                     MapScaleView()
+                }
+                .onMapCameraChange { ctx in
+                    visibleRegion = ctx.region
                 }
                 .ignoresSafeArea(edges: .top)
 
@@ -82,6 +125,9 @@ struct MapTabView: View {
                 MapFilterView()
                     .presentationDetents([.medium])
             }
+            .sheet(isPresented: $showingAddCustom) {
+                AddCustomOnsenView()
+            }
             .onAppear {
                 locationVM.requestPermission()
                 // 初回起動時にデータ取得を開始
@@ -114,10 +160,14 @@ struct MapTabView: View {
                     .foregroundStyle(viewModel.hasActiveFilters ? .orange : .primary)
                 }
 
-                // マップスタイル
+                // マップスタイル + 温泉追加
                 Menu {
+                    Button { showingAddCustom = true } label: {
+                        Label("温泉を追加する", systemImage: "plus.circle.fill")
+                    }
+                    Divider()
                     Button { mapStyle = .standard } label: {
-                        Label("標準", systemImage: "map")
+                        Label("標準マップ", systemImage: "map")
                     }
                     Button { mapStyle = .hybrid } label: {
                         Label("航空写真+地図", systemImage: "globe")
@@ -126,7 +176,7 @@ struct MapTabView: View {
                         Label("航空写真", systemImage: "camera")
                     }
                 } label: {
-                    Image(systemName: "map.fill")
+                    Image(systemName: "ellipsis.circle")
                 }
             }
         }
@@ -181,7 +231,7 @@ struct DataLoadingBanner: View {
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundStyle(.green)
                     .font(.caption)
-                Text("\(count.formatted())か所を表示中")
+                Text("\(count.formatted())件収録")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()
