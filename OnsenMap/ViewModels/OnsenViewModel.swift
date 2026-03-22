@@ -9,38 +9,76 @@ import MapKit
 final class OnsenViewModel: ObservableObject {
 
     // MARK: - Published State
-    @Published var allOnsens: [Onsen] = []
     @Published var visits: [Visit] = []
     @Published var visitedIds: Set<UUID> = []
     @Published var unlockedBadgeIds: Set<String> = []
     @Published var userName: String = "温泉旅人"
     @Published var searchText: String = ""
     @Published var selectedPrefecture: String? = nil
+    @Published var selectedTypes: Set<Onsen.OnsenType> = []
+    @Published var showSecretOnly: Bool = false
 
+    // DataRepository を通じてデータを取得
+    let repository = OnsenDataRepository.shared
     private let persistence = PersistenceService.shared
+    private var cancellables = Set<AnyCancellable>()
 
     // MARK: - Init
     init() {
-        loadData()
+        loadUserData()
         checkBadges()
+
+        // Repository の変更を購読して自動更新
+        repository.$osmOnsens
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+            .store(in: &cancellables)
+        repository.$customOnsens
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+            .store(in: &cancellables)
     }
 
     // MARK: - Computed Properties
 
+    /// 全温泉（OSM + サンプル + カスタム）
+    var allOnsens: [Onsen] { repository.allOnsens }
+
+    /// ローディング状態
+    var loadingState: DataLoadingState { repository.loadingState }
+
     /// フィルタリング済みの温泉一覧
     var filteredOnsens: [Onsen] {
         var result = allOnsens
+
+        // 秘湯フィルター
+        if showSecretOnly {
+            result = result.filter { $0.facilities.contains("秘湯") }
+        }
+
+        // テキスト検索
         if !searchText.isEmpty {
+            let q = searchText
             result = result.filter {
-                $0.name.contains(searchText) ||
-                $0.address.contains(searchText) ||
-                $0.prefecture.contains(searchText) ||
-                ($0.springQuality ?? "").contains(searchText)
+                $0.name.contains(q) ||
+                $0.nameReading.contains(q) ||
+                $0.address.contains(q) ||
+                $0.prefecture.contains(q) ||
+                ($0.springQuality ?? "").contains(q) ||
+                $0.facilities.joined().contains(q)
             }
         }
-        if let prefecture = selectedPrefecture {
-            result = result.filter { $0.prefecture == prefecture }
+
+        // 都道府県フィルター
+        if let pref = selectedPrefecture {
+            result = result.filter { $0.prefecture == pref }
         }
+
+        // 種別フィルター
+        if !selectedTypes.isEmpty {
+            result = result.filter { selectedTypes.contains($0.onsenType) }
+        }
+
         return result
     }
 
@@ -49,169 +87,161 @@ final class OnsenViewModel: ObservableObject {
         allOnsens.filter { visitedIds.contains($0.id) }
     }
 
-    /// 未訪問温泉
-    var unvisitedOnsens: [Onsen] {
-        allOnsens.filter { !visitedIds.contains($0.id) }
-    }
-
-    /// ユニークな訪問数（同じ温泉への複数訪問は1回としてカウント）
+    /// ユニーク訪問数
     var uniqueVisitCount: Int { visitedIds.count }
 
-    /// 総訪問回数（同じ温泉への複数回訪問も含む）
+    /// 総入浴回数
     var totalVisitCount: Int { visits.count }
 
-    /// 都道府県一覧
+    /// 都道府県一覧（データに存在するものだけ）
     var prefectures: [String] {
         Array(Set(allOnsens.map { $0.prefecture })).sorted()
     }
 
-    /// 制覇した都道府県
+    /// 訪問済み都道府県
     var visitedPrefectures: Set<String> {
         Set(visitedOnsens.map { $0.prefecture })
     }
 
+    /// 秘湯一覧
+    var secretOnsens: [Onsen] { repository.secretOnsens }
+
     /// 現在の称号
-    var currentTitle: Title {
-        Title.current(for: uniqueVisitCount)
-    }
+    var currentTitle: Title  { Title.current(for: uniqueVisitCount) }
 
     /// 次の称号
-    var nextTitle: Title? {
-        Title.next(after: uniqueVisitCount)
-    }
+    var nextTitle: Title?     { Title.next(after: uniqueVisitCount) }
 
     /// 次の称号まであと何か所
     var visitsUntilNextTitle: Int? {
-        guard let next = nextTitle else { return nil }
-        return next.requiredVisits - uniqueVisitCount
+        nextTitle.map { $0.requiredVisits - uniqueVisitCount }
     }
 
-    /// 称号進捗 (0.0〜1.0)
+    /// 称号進捗 0.0〜1.0
     var titleProgress: Double {
-        let current = currentTitle
-        guard let next = nextTitle else { return 1.0 }
-        let range = next.requiredVisits - current.requiredVisits
-        let done  = uniqueVisitCount - current.requiredVisits
+        let cur = currentTitle
+        guard let nxt = nextTitle else { return 1.0 }
+        let range = nxt.requiredVisits - cur.requiredVisits
+        let done  = uniqueVisitCount   - cur.requiredVisits
         return Double(done) / Double(range)
     }
 
-    /// バッジ一覧（解除状態つき）
+    /// バッジ一覧（解除状態付き）
     var badges: [Badge] {
-        Badge.all.map { badge in
-            var b = badge
-            b.isUnlocked = unlockedBadgeIds.contains(badge.id)
-            return b
+        Badge.all.map { b in
+            var copy = b
+            copy.isUnlocked = unlockedBadgeIds.contains(b.id)
+            return copy
         }
+    }
+
+    // MARK: - Data Fetching
+
+    /// 全国データを取得（初回 or 手動更新時）
+    func fetchFullDatabase() async {
+        await repository.fetchAllJapan()
+    }
+
+    /// キャッシュをクリアして再取得
+    func refreshDatabase() async {
+        repository.clearCache()
+        await repository.fetchAllJapan()
     }
 
     // MARK: - Onsen Operations
 
-    /// 温泉が訪問済みかチェック
     func isVisited(_ onsen: Onsen) -> Bool {
         visitedIds.contains(onsen.id)
     }
 
-    /// 日記エントリーを追加（訪問済みにする）
     func addVisit(_ visit: Visit) {
         visits.insert(visit, at: 0)
         visitedIds.insert(visit.onsenId)
-        saveData()
+        saveUserData()
         checkBadges()
     }
 
-    /// 日記エントリーを削除
     func deleteVisit(_ visit: Visit) {
         visits.removeAll { $0.id == visit.id }
-        // まだ他の訪問が残っているかチェック
         if !visits.contains(where: { $0.onsenId == visit.onsenId }) {
             visitedIds.remove(visit.onsenId)
         }
-        saveData()
+        saveUserData()
     }
 
-    /// 日記エントリーを更新
     func updateVisit(_ visit: Visit) {
-        if let index = visits.firstIndex(where: { $0.id == visit.id }) {
-            visits[index] = visit
-            saveData()
+        if let i = visits.firstIndex(where: { $0.id == visit.id }) {
+            visits[i] = visit
+            saveUserData()
         }
     }
 
-    /// 特定の温泉の訪問履歴
     func visitsFor(_ onsen: Onsen) -> [Visit] {
         visits.filter { $0.onsenId == onsen.id }.sorted { $0.date > $1.date }
     }
 
-    /// 温泉名から訪問履歴を検索
-    func visits(for onsenId: UUID) -> [Visit] {
-        visits.filter { $0.onsenId == onsenId }
+    // MARK: - Custom Onsens
+
+    func addCustomOnsen(_ onsen: Onsen) {
+        repository.addCustomOnsen(onsen)
     }
 
     // MARK: - User Profile
+
     func updateUserName(_ name: String) {
         userName = name
         persistence.saveUserName(name)
     }
 
+    // MARK: - Filters
+
+    func clearFilters() {
+        searchText = ""
+        selectedPrefecture = nil
+        selectedTypes = []
+        showSecretOnly = false
+    }
+
+    var hasActiveFilters: Bool {
+        !searchText.isEmpty || selectedPrefecture != nil ||
+        !selectedTypes.isEmpty || showSecretOnly
+    }
+
     // MARK: - Badge Check
     func checkBadges() {
-        var newBadges = unlockedBadgeIds
+        var nb = unlockedBadgeIds
 
-        // 初入浴
-        if !visits.isEmpty { newBadges.insert("first_visit") }
+        if !visits.isEmpty               { nb.insert("first_visit") }
+        if visits.contains(where: { !$0.photoFileNames.isEmpty }) { nb.insert("photo_debut") }
+        if visits.contains(where: { $0.rating == 5 })             { nb.insert("five_stars") }
+        if visits.contains(where: { $0.weather == .snowy })       { nb.insert("snow_bath") }
+        if visits.contains(where: { $0.companions.isEmpty })      { nb.insert("solo_trip") }
+        if visits.contains(where: { $0.companions.count >= 2 })   { nb.insert("group_trip") }
+        if visitedPrefectures.count >= 3   { nb.insert("prefecture_3") }
+        if visitedPrefectures.count >= 10  { nb.insert("prefecture_10") }
+        if uniqueVisitCount >= 100         { nb.insert("onsen_100") }
 
-        // 写真付き日記
-        if visits.contains(where: { !$0.photoFileNames.isEmpty }) {
-            newBadges.insert("photo_debut")
-        }
-
-        // 5つ星評価
-        if visits.contains(where: { $0.rating == 5 }) {
-            newBadges.insert("five_stars")
-        }
-
-        // 雪の日入浴
-        if visits.contains(where: { $0.weather == .snowy }) {
-            newBadges.insert("snow_bath")
-        }
-
-        // ひとり旅
-        if visits.contains(where: { $0.companions.isEmpty }) {
-            newBadges.insert("solo_trip")
-        }
-
-        // グループ旅行
-        if visits.contains(where: { $0.companions.count >= 2 }) {
-            newBadges.insert("group_trip")
-        }
-
-        // 3県制覇
-        if visitedPrefectures.count >= 3  { newBadges.insert("prefecture_3") }
-        if visitedPrefectures.count >= 10 { newBadges.insert("prefecture_10") }
-
-        // 100か所
-        if uniqueVisitCount >= 100 { newBadges.insert("onsen_100") }
-
-        // レビューマスター（50件のノート）
         let notedVisits = visits.filter { !$0.notes.isEmpty }
-        if notedVisits.count >= 50 { newBadges.insert("review_master") }
+        if notedVisits.count >= 50 { nb.insert("review_master") }
 
-        // 週イチ常連（1週間以内に3回）
         let oneWeekAgo = Date().addingTimeInterval(-7 * 24 * 3600)
-        let recentVisits = visits.filter { $0.date >= oneWeekAgo }
-        if recentVisits.count >= 3 { newBadges.insert("weekly_visitor") }
+        if visits.filter({ $0.date >= oneWeekAgo }).count >= 3 { nb.insert("weekly_visitor") }
 
-        if newBadges != unlockedBadgeIds {
-            unlockedBadgeIds = newBadges
-            persistence.saveUnlockedBadgeIds(newBadges)
+        // 秘湯バッジ（秘湯を1か所訪問）
+        let visitedSecretIds = Set(visitedOnsens.filter { $0.facilities.contains("秘湯") }.map { $0.id })
+        if !visitedSecretIds.isEmpty { nb.insert("secret_onsen") }
+
+        if nb != unlockedBadgeIds {
+            unlockedBadgeIds = nb
+            persistence.saveUnlockedBadgeIds(nb)
         }
     }
 
-    // MARK: - Share Text
+    // MARK: - Share
     func shareText() -> String {
         """
         🌊 \(userName) の温泉記録
-        📍 訪問した温泉: \(uniqueVisitCount)か所
+        📍 訪問した温泉: \(uniqueVisitCount)か所（秘湯含む）
         🏆 称号: \(currentTitle.name)
         🗾 制覇した都道府県: \(visitedPrefectures.count)都道府県
 
@@ -219,17 +249,15 @@ final class OnsenViewModel: ObservableObject {
         """
     }
 
-    // MARK: - Data Persistence
-    private func loadData() {
-        let customOnsens = persistence.loadCustomOnsens()
-        allOnsens = SampleData.onsens + customOnsens
-        visits = persistence.loadVisits()
-        visitedIds = persistence.loadVisitedIds()
+    // MARK: - Persistence (user data only)
+    private func loadUserData() {
+        visits           = persistence.loadVisits()
+        visitedIds       = persistence.loadVisitedIds()
         unlockedBadgeIds = persistence.loadUnlockedBadgeIds()
-        userName = persistence.loadUserName()
+        userName         = persistence.loadUserName()
     }
 
-    private func saveData() {
+    private func saveUserData() {
         persistence.saveVisits(visits)
         persistence.saveVisitedIds(visitedIds)
     }
@@ -240,7 +268,6 @@ final class LocationViewModel: NSObject, ObservableObject, CLLocationManagerDele
 
     @Published var userLocation: CLLocationCoordinate2D?
     @Published var authorizationStatus: CLAuthorizationStatus = .notDetermined
-    @Published var nearbyOnsens: [Onsen] = []
 
     private let locationManager = CLLocationManager()
 
@@ -254,27 +281,18 @@ final class LocationViewModel: NSObject, ObservableObject, CLLocationManagerDele
         locationManager.requestWhenInUseAuthorization()
     }
 
-    func startUpdating() {
-        locationManager.startUpdatingLocation()
-    }
+    func startUpdating() { locationManager.startUpdatingLocation() }
+    func stopUpdating()  { locationManager.stopUpdatingLocation() }
 
-    func stopUpdating() {
-        locationManager.stopUpdatingLocation()
-    }
-
-    /// MapKit を使って周辺の温泉を検索する
+    /// MapKit で周辺の温泉を検索
     func searchNearbyOnsens(center: CLLocationCoordinate2D, radius: CLLocationDistance = 10_000) async -> [MKMapItem] {
         let request = MKLocalSearch.Request()
         request.naturalLanguageQuery = "温泉"
-        request.region = MKCoordinateRegion(
-            center: center,
-            latitudinalMeters: radius,
-            longitudinalMeters: radius
-        )
+        request.region = MKCoordinateRegion(center: center,
+                                            latitudinalMeters: radius,
+                                            longitudinalMeters: radius)
         do {
-            let search = MKLocalSearch(request: request)
-            let response = try await search.start()
-            return response.mapItems
+            return try await MKLocalSearch(request: request).start().mapItems
         } catch {
             return []
         }
@@ -284,7 +302,6 @@ final class LocationViewModel: NSObject, ObservableObject, CLLocationManagerDele
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         userLocation = locations.last?.coordinate
     }
-
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         authorizationStatus = manager.authorizationStatus
         if manager.authorizationStatus == .authorizedWhenInUse ||

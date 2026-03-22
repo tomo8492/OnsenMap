@@ -49,17 +49,18 @@ struct Badge: Identifiable {
     var isUnlocked: Bool
 
     static let all: [Badge] = [
-        Badge(id: "first_visit",      name: "初湯",         description: "はじめて温泉を記録した",             icon: "drop.fill",             color: .blue,   isUnlocked: false),
-        Badge(id: "photo_debut",      name: "写真デビュー",  description: "はじめて写真を記録した",             icon: "camera.fill",            color: .purple, isUnlocked: false),
-        Badge(id: "night_bath",       name: "夜の湯",        description: "夜間（20時以降）に入浴した",         icon: "moon.fill",              color: .indigo, isUnlocked: false),
-        Badge(id: "snow_bath",        name: "雪見風呂",      description: "雪の日に入浴した",                   icon: "snowflake",              color: .cyan,   isUnlocked: false),
-        Badge(id: "solo_trip",        name: "一人旅の湯",    description: "ひとりで入浴した",                   icon: "person.fill",            color: .gray,   isUnlocked: false),
-        Badge(id: "group_trip",       name: "みんなで温泉",  description: "3人以上で入浴した",                  icon: "person.3.fill",          color: .green,  isUnlocked: false),
-        Badge(id: "prefecture_3",     name: "3県制覇",       description: "3つの都道府県の温泉を巡った",         icon: "map.fill",               color: .orange, isUnlocked: false),
-        Badge(id: "prefecture_10",    name: "10県制覇",      description: "10の都道府県の温泉を巡った",          icon: "globe.asia.australia.fill", color: .red, isUnlocked: false),
-        Badge(id: "five_stars",       name: "五つ星の湯",    description: "5つ星の評価をつけた",                icon: "star.fill",              color: .yellow, isUnlocked: false),
-        Badge(id: "weekly_visitor",   name: "週イチ常連",    description: "1週間以内に3回訪問した",             icon: "calendar.badge.clock",   color: .mint,   isUnlocked: false),
-        Badge(id: "onsen_100",        name: "百湯達成",      description: "100か所の温泉を制覇した",            icon: "medal.fill",             color: Color(red: 0.8, green: 0.6, blue: 0.1), isUnlocked: false),
-        Badge(id: "review_master",    name: "レビューマスター", description: "50件のノートを書いた",            icon: "pencil.and.outline",     color: .brown,  isUnlocked: false),
+        Badge(id: "first_visit",      name: "初湯",          description: "はじめて温泉を記録した",                  icon: "drop.fill",                 color: .blue,   isUnlocked: false),
+        Badge(id: "photo_debut",      name: "写真デビュー",   description: "はじめて写真を記録した",                  icon: "camera.fill",                color: .purple, isUnlocked: false),
+        Badge(id: "snow_bath",        name: "雪見風呂",       description: "雪の日に入浴した",                        icon: "snowflake",                  color: .cyan,   isUnlocked: false),
+        Badge(id: "solo_trip",        name: "一人旅の湯",     description: "ひとりで入浴した",                        icon: "person.fill",                color: .gray,   isUnlocked: false),
+        Badge(id: "group_trip",       name: "みんなで温泉",   description: "3人以上で入浴した",                       icon: "person.3.fill",              color: .green,  isUnlocked: false),
+        Badge(id: "secret_onsen",     name: "秘湯制覇",       description: "秘湯・野天風呂を訪れた",                   icon: "mountain.2.fill",            color: .purple, isUnlocked: false),
+        Badge(id: "prefecture_3",     name: "3県制覇",        description: "3つの都道府県の温泉を巡った",              icon: "map.fill",                   color: .orange, isUnlocked: false),
+        Badge(id: "prefecture_10",    name: "10県制覇",       description: "10の都道府県の温泉を巡った",               icon: "globe.asia.australia.fill",  color: .red,    isUnlocked: false),
+        Badge(id: "five_stars",       name: "五つ星の湯",     description: "5つ星の評価をつけた",                     icon: "star.fill",                  color: .yellow, isUnlocked: false),
+        Badge(id: "weekly_visitor",   name: "週イチ常連",     description: "1週間以内に3回訪問した",                  icon: "calendar.badge.clock",       color: .mint,   isUnlocked: false),
+        Badge(id: "onsen_100",        name: "百湯達成",       description: "100か所の温泉を制覇した",                 icon: "medal.fill",                 color: Color(red: 0.8, green: 0.6, blue: 0.1), isUnlocked: false),
+        Badge(id: "review_master",    name: "レビューマスター", description: "50件のノートを書いた",                  icon: "pencil.and.outline",         color: .brown,  isUnlocked: false),
+        Badge(id: "night_bath",       name: "夜の湯",         description: "夜間（20時以降）に入浴した",              icon: "moon.fill",                  color: .indigo, isUnlocked: false),
     ]
 }
