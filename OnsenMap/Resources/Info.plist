@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- ─── アプリ基本情報 ─── -->
+	<key>CFBundleDisplayName</key>
+	<string>OnsenMap</string>
+	<key>CFBundleName</key>
+	<string>OnsenMap</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.yourcompany.OnsenMap</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.0</string>
+
+	<!-- ─── 位置情報の許可説明 ─── -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>近くの温泉を地図に表示するために現在地を使用します。</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>バックグラウンドでの位置情報を使用して、近くの温泉をお知らせします。</string>
+
+	<!-- ─── カメラ・フォトライブラリの許可説明 ─── -->
+	<key>NSCameraUsageDescription</key>
+	<string>温泉の写真を撮影して日記に記録します。</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>温泉の写真を日記に追加します。</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>温泉の写真をフォトライブラリに保存します。</string>
+
+	<!-- ─── Google AdMob App ID ─── -->
+	<!-- AdMob を使う場合は下記の値をご自身の App ID に変更してください -->
+	<!-- テスト用: ca-app-pub-3940256099942544~1458002511 -->
+	<key>GADApplicationIdentifier</key>
+	<string>ca-app-pub-XXXXXXXXXXXXXXXX~XXXXXXXXXX</string>
+
+	<!-- ─── Google Maps URL Scheme ─── -->
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>comgooglemaps</string>
+		<string>maps</string>
+	</array>
+
+	<!-- ─── サポートするデバイス方向 ─── -->
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+
+	<key>UILaunchScreen</key>
+	<dict/>
+
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<false/>
+	</dict>
+</dict>
+</plist>
