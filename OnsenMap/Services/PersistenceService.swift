@@ -12,11 +12,12 @@ final class PersistenceService {
 
     // Keys
     private enum Key {
-        static let visits        = "onsenmap.visits"
-        static let customOnsens  = "onsenmap.customOnsens"
-        static let visitedIds    = "onsenmap.visitedIds"
-        static let userName      = "onsenmap.userName"
-        static let userBadges    = "onsenmap.userBadges"
+        static let visits           = "onsenmap.visits"
+        static let customOnsens     = "onsenmap.customOnsens"
+        static let visitedIds       = "onsenmap.visitedIds"
+        static let userName         = "onsenmap.userName"
+        static let userBadges       = "onsenmap.userBadges"
+        static let customDisplayTitle = "onsenmap.customDisplayTitle"
     }
 
     // MARK: - Visits
@@ -67,6 +68,15 @@ final class PersistenceService {
 
     func loadUserName() -> String {
         defaults.string(forKey: Key.userName) ?? "温泉旅人"
+    }
+
+    // MARK: - Custom Display Title
+    func saveCustomDisplayTitle(_ title: String) {
+        defaults.set(title, forKey: Key.customDisplayTitle)
+    }
+
+    func loadCustomDisplayTitle() -> String? {
+        defaults.string(forKey: Key.customDisplayTitle)
     }
 
     // MARK: - Badges

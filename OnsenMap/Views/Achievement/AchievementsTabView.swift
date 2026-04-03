@@ -3,7 +3,8 @@ import SwiftUI
 // MARK: - Achievements Tab View（称号・バッジ）
 struct AchievementsTabView: View {
     @EnvironmentObject var viewModel: OnsenViewModel
-    @State private var showingShareSheet = false
+    @State private var showingShareSheet   = false
+    @State private var showingTitleBuilder = false
 
     var body: some View {
         NavigationStack {
@@ -13,6 +14,50 @@ struct AchievementsTabView: View {
                     // ─── 現在の称号カード ───
                     CurrentTitleCard()
                         .padding(.horizontal)
+
+                    // ─── 称号カスタマイズボタン ───
+                    Button {
+                        showingTitleBuilder = true
+                    } label: {
+                        Label("称号をカスタマイズする", systemImage: "wand.and.stars")
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(Color.purple.opacity(0.15))
+                            .foregroundStyle(.purple)
+                            .cornerRadius(12)
+                            .fontWeight(.semibold)
+                    }
+                    .padding(.horizontal)
+                    .buttonStyle(.plain)
+
+                    // ─── 世界ランキングバナー ───
+                    NavigationLink(destination: RankingView()) {
+                        HStack(spacing: 12) {
+                            Image(systemName: "trophy.fill")
+                                .font(.title2)
+                                .foregroundStyle(.yellow)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("世界ランキング")
+                                    .fontWeight(.bold)
+                                Text("全国の温泉ハンターとスコアを競おう")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding()
+                        .background(
+                            LinearGradient(
+                                colors: [Color.yellow.opacity(0.15), Color.orange.opacity(0.1)],
+                                startPoint: .leading, endPoint: .trailing
+                            )
+                        )
+                        .cornerRadius(14)
+                        .padding(.horizontal)
+                    }
+                    .buttonStyle(.plain)
 
                     // ─── 称号ロードマップ ───
                     TitleRoadmapView()
@@ -46,6 +91,9 @@ struct AchievementsTabView: View {
             .sheet(isPresented: $showingShareSheet) {
                 SocialShareView()
             }
+            .sheet(isPresented: $showingTitleBuilder) {
+                TitleBuilderView(viewModel: viewModel)
+            }
         }
     }
 }
@@ -76,10 +124,18 @@ struct CurrentTitleCard: View {
                         .foregroundStyle(title.color)
                 }
 
-                Text(title.name)
+                // カスタム称号（設定済みなら優先表示）
+                Text(viewModel.customDisplayTitle)
                     .font(.largeTitle)
                     .fontWeight(.bold)
                     .foregroundStyle(title.color)
+                    .multilineTextAlignment(.center)
+
+                if viewModel.customDisplayTitle != title.name {
+                    Text("ベース: \(title.name)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
 
                 Text(title.subtitle)
                     .font(.subheadline)

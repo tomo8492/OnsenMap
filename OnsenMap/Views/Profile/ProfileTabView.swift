@@ -3,58 +3,86 @@ import SwiftUI
 // MARK: - Profile Tab View
 struct ProfileTabView: View {
     @EnvironmentObject var viewModel: OnsenViewModel
-    @State private var showingNameEdit = false
-    @State private var showingShare = false
+    @State private var showingNameEdit    = false
+    @State private var showingShare       = false
+    @State private var showingTitleBuilder = false
     @State private var newName = ""
 
     var body: some View {
         NavigationStack {
             List {
                 // ─── ユーザー情報 ───
+                // ─── ユーザーカード ───
                 Section {
-                    HStack(spacing: 16) {
-                        ZStack {
-                            Circle()
-                                .fill(
-                                    LinearGradient(
-                                        colors: [.orange.opacity(0.6), .red.opacity(0.4)],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
+                    VStack(spacing: 12) {
+                        HStack(spacing: 16) {
+                            ZStack {
+                                Circle()
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [viewModel.currentTitle.color.opacity(0.6),
+                                                     viewModel.currentTitle.color.opacity(0.3)],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
                                     )
-                                )
-                                .frame(width: 72, height: 72)
-                            Image(systemName: viewModel.currentTitle.icon)
-                                .font(.system(size: 32))
-                                .foregroundStyle(.white)
+                                    .frame(width: 72, height: 72)
+                                Image(systemName: viewModel.currentTitle.icon)
+                                    .font(.system(size: 32))
+                                    .foregroundStyle(.white)
+                            }
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(viewModel.userName)
+                                    .font(.title2)
+                                    .fontWeight(.bold)
+                                // カスタム称号を大きく表示
+                                Text(viewModel.customDisplayTitle)
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
+                                    .foregroundStyle(viewModel.currentTitle.color)
+                                Text("\(viewModel.uniqueVisitCount)か所制覇")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            Spacer()
+                            Button {
+                                newName = viewModel.userName
+                                showingNameEdit = true
+                            } label: {
+                                Image(systemName: "pencil.circle.fill")
+                                    .font(.title2)
+                                    .foregroundStyle(.orange)
+                            }
                         }
 
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(viewModel.userName)
-                                .font(.title2)
-                                .fontWeight(.bold)
-                            Text(viewModel.currentTitle.name)
-                                .font(.subheadline)
-                                .foregroundStyle(viewModel.currentTitle.color)
-                            Text("\(viewModel.uniqueVisitCount)か所制覇")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-
-                        Spacer()
+                        // 称号カスタマイズボタン
                         Button {
-                            newName = viewModel.userName
-                            showingNameEdit = true
+                            showingTitleBuilder = true
                         } label: {
-                            Image(systemName: "pencil.circle.fill")
-                                .font(.title2)
-                                .foregroundStyle(.orange)
+                            Label("称号をカスタマイズする", systemImage: "wand.and.stars")
+                                .font(.subheadline)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 8)
+                                .background(viewModel.currentTitle.color.opacity(0.15))
+                                .foregroundStyle(viewModel.currentTitle.color)
+                                .cornerRadius(10)
                         }
+                        .buttonStyle(.plain)
                     }
                     .padding(.vertical, 8)
                 }
 
                 // ─── マイ統計 ───
                 Section("マイ統計") {
+                    NavigationLink {
+                        RankingView()
+                    } label: {
+                        Label("世界ランキングを見る", systemImage: "trophy.fill")
+                            .foregroundStyle(.orange)
+                    }
+
                     NavigationLink {
                         StatsDetailFullView()
                     } label: {
@@ -124,6 +152,9 @@ struct ProfileTabView: View {
             .navigationTitle("プロフィール")
             .sheet(isPresented: $showingShare) {
                 SocialShareView()
+            }
+            .sheet(isPresented: $showingTitleBuilder) {
+                TitleBuilderView(viewModel: viewModel)
             }
             .alert("名前を変更", isPresented: $showingNameEdit) {
                 TextField("ニックネーム", text: $newName)

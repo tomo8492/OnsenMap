@@ -13,6 +13,8 @@ final class OnsenViewModel: ObservableObject {
     @Published var visitedIds: Set<UUID> = []
     @Published var unlockedBadgeIds: Set<String> = []
     @Published var userName: String = "温泉旅人"
+    /// プロフィール・ランキングに表示するカスタム称号（例: 「宮城の温泉仙人」）
+    @Published var customDisplayTitle: String = ""
     @Published var searchText: String = ""
     @Published var selectedPrefecture: String? = nil
     @Published var selectedTypes: Set<Onsen.OnsenType> = []
@@ -159,6 +161,8 @@ final class OnsenViewModel: ObservableObject {
         visitedIds.insert(visit.onsenId)
         saveUserData()
         checkBadges()
+        // Game Center にスコア更新を送信
+        GameCenterService.shared.submitScore(uniqueVisitCount)
     }
 
     func deleteVisit(_ visit: Visit) {
@@ -191,6 +195,14 @@ final class OnsenViewModel: ObservableObject {
     func updateUserName(_ name: String) {
         userName = name
         persistence.saveUserName(name)
+    }
+
+    /// カスタム称号を設定・保存する
+    func setCustomDisplayTitle(_ title: String) {
+        customDisplayTitle = title
+        persistence.saveCustomDisplayTitle(title)
+        // Game Center にスコア再送（称号変更のタイミングで最新状態を送信）
+        GameCenterService.shared.submitScore(uniqueVisitCount)
     }
 
     // MARK: - Filters
@@ -257,10 +269,11 @@ final class OnsenViewModel: ObservableObject {
 
     // MARK: - Persistence (user data only)
     private func loadUserData() {
-        visits           = persistence.loadVisits()
-        visitedIds       = persistence.loadVisitedIds()
-        unlockedBadgeIds = persistence.loadUnlockedBadgeIds()
-        userName         = persistence.loadUserName()
+        visits             = persistence.loadVisits()
+        visitedIds         = persistence.loadVisitedIds()
+        unlockedBadgeIds   = persistence.loadUnlockedBadgeIds()
+        userName           = persistence.loadUserName()
+        customDisplayTitle = persistence.loadCustomDisplayTitle() ?? currentTitle.name
     }
 
     private func saveUserData() {
