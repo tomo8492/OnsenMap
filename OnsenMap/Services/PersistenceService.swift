@@ -18,6 +18,7 @@ final class PersistenceService {
         static let userName         = "onsenmap.userName"
         static let userBadges       = "onsenmap.userBadges"
         static let customDisplayTitle = "onsenmap.customDisplayTitle"
+        static let wishlistIds        = "onsenmap.wishlistIds"
     }
 
     // MARK: - Visits
@@ -68,6 +69,14 @@ final class PersistenceService {
 
     func loadUserName() -> String {
         defaults.string(forKey: Key.userName) ?? "温泉旅人"
+    }
+
+    // MARK: - Wishlist
+    func saveWishlistIds(_ ids: Set<UUID>) {
+        defaults.set(ids.map { $0.uuidString }, forKey: Key.wishlistIds)
+    }
+    func loadWishlistIds() -> Set<UUID> {
+        Set((defaults.stringArray(forKey: Key.wishlistIds) ?? []).compactMap { UUID(uuidString: $0) })
     }
 
     // MARK: - Custom Display Title

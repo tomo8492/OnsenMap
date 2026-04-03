@@ -4,7 +4,7 @@ import GameKit
 // MARK: - Ranking View（世界ランキング）
 struct RankingView: View {
     @EnvironmentObject var viewModel: OnsenViewModel
-    @StateObject private var gc = GameCenterService.shared
+    @EnvironmentObject var gc: GameCenterService
     @State private var selectedScope: RankScope = .global
     @State private var showingGCDashboard = false
 
@@ -123,7 +123,7 @@ struct RankingView: View {
 // MARK: - My Rank Banner
 struct MyRankBanner: View {
     @EnvironmentObject var viewModel: OnsenViewModel
-    @StateObject private var gc = GameCenterService.shared
+    @EnvironmentObject var gc: GameCenterService
 
     var body: some View {
         HStack(spacing: 16) {

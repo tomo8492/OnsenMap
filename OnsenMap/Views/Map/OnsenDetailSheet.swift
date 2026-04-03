@@ -62,7 +62,7 @@ struct OnsenDetailSheet: View {
                     VStack(alignment: .leading, spacing: 16) {
 
                         // ─── アクションボタン ───
-                        HStack(spacing: 12) {
+                        HStack(spacing: 10) {
                             // 行った！ボタン
                             Button {
                                 showingAddVisit = true
@@ -75,6 +75,23 @@ struct OnsenDetailSheet: View {
                                     .foregroundStyle(.white)
                                     .cornerRadius(12)
                                     .fontWeight(.semibold)
+                            }
+
+                            // 行きたい！ボタン（未訪問のみ表示）
+                            if !isVisited {
+                                Button {
+                                    viewModel.toggleWishlist(onsen)
+                                } label: {
+                                    Image(systemName: viewModel.isWishlisted(onsen)
+                                          ? "heart.fill" : "heart")
+                                        .font(.title3)
+                                        .padding(.vertical, 12)
+                                        .padding(.horizontal, 14)
+                                        .background(viewModel.isWishlisted(onsen)
+                                                    ? Color.pink : Color(.systemGray5))
+                                        .foregroundStyle(viewModel.isWishlisted(onsen) ? .white : .secondary)
+                                        .cornerRadius(12)
+                                }
                             }
 
                             // 経路案内ボタン

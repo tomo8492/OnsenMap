@@ -24,14 +24,21 @@ final class GameCenterService: NSObject, ObservableObject {
     @Published var isLoadingRanking = false
     @Published var authError: String? = nil
 
-    // MARK: - Authentication
-    func authenticate(presenting viewController: UIViewController) {
+    // MARK: - Authentication（起動時に呼ぶ）
+    func authenticateOnLaunch() {
         GKLocalPlayer.local.authenticateHandler = { [weak self] gcViewController, error in
             guard let self else { return }
 
             if let vc = gcViewController {
-                // Game Center ログイン画面を表示
-                viewController.present(vc, animated: true)
+                // Game Center ログイン画面を自動的に最前面に表示
+                DispatchQueue.main.async {
+                    UIApplication.shared.connectedScenes
+                        .compactMap { $0 as? UIWindowScene }
+                        .flatMap { $0.windows }
+                        .first { $0.isKeyWindow }?
+                        .rootViewController?
+                        .present(vc, animated: true)
+                }
             } else if GKLocalPlayer.local.isAuthenticated {
                 self.isAuthenticated = true
                 self.playerName = GKLocalPlayer.local.displayName
@@ -39,10 +46,26 @@ final class GameCenterService: NSObject, ObservableObject {
                     if let photo = try? await GKLocalPlayer.local.loadPhoto(for: .normal) {
                         self.playerPhoto = photo
                     }
+                    await self.loadGlobalRanking()
                 }
-            } else if let error {
-                self.authError = error.localizedDescription
+            } else {
                 self.isAuthenticated = false
+                self.authError = error?.localizedDescription
+            }
+        }
+    }
+
+    // MARK: - Authentication（UIから手動起動・後方互換）
+    func authenticate(presenting viewController: UIViewController) {
+        GKLocalPlayer.local.authenticateHandler = { [weak self] gcViewController, error in
+            guard let self else { return }
+            if let vc = gcViewController {
+                viewController.present(vc, animated: true)
+            } else if GKLocalPlayer.local.isAuthenticated {
+                self.isAuthenticated = true
+                self.playerName = GKLocalPlayer.local.displayName
+            } else {
+                self.authError = error?.localizedDescription
             }
         }
     }

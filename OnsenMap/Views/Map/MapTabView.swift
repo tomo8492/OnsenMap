@@ -70,7 +70,8 @@ struct MapTabView: View {
                         Annotation(onsen.name, coordinate: onsen.coordinate) {
                             OnsenPinView(
                                 onsen: onsen,
-                                isVisited: viewModel.isVisited(onsen)
+                                isVisited: viewModel.isVisited(onsen),
+                                isWishlisted: viewModel.isWishlisted(onsen)
                             )
                             .onTapGesture {
                                 selectedOnsen = onsen
@@ -335,12 +336,14 @@ struct FilterChip: View {
 struct OnsenPinView: View {
     let onsen: Onsen
     let isVisited: Bool
+    var isWishlisted: Bool = false
 
     var isSecret: Bool { onsen.facilities.contains("秘湯") }
 
     var pinColor: Color {
-        if isVisited    { return .orange }
-        if isSecret     { return .purple }
+        if isVisited     { return .orange }
+        if isWishlisted  { return .pink }
+        if isSecret      { return .purple }
         return .blue
     }
 
@@ -359,11 +362,15 @@ struct OnsenPinView: View {
                 ? Circle().stroke(Color.white, lineWidth: 2).frame(width: 36, height: 36)
                 : nil
         )
-        // 秘湯は小さい ★ マークを付加
         .overlay(
             isSecret && !isVisited
-                ? Text("★")
-                    .font(.system(size: 8))
+                ? Text("★").font(.system(size: 8)).foregroundStyle(.white).offset(x: 12, y: -12)
+                : nil
+        )
+        .overlay(
+            isWishlisted && !isVisited
+                ? Image(systemName: "heart.fill")
+                    .font(.system(size: 9))
                     .foregroundStyle(.white)
                     .offset(x: 12, y: -12)
                 : nil

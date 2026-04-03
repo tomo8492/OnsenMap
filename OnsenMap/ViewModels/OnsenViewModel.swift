@@ -15,6 +15,9 @@ final class OnsenViewModel: ObservableObject {
     @Published var userName: String = "温泉旅人"
     /// プロフィール・ランキングに表示するカスタム称号（例: 「宮城の温泉仙人」）
     @Published var customDisplayTitle: String = ""
+    @Published var wishlistIds: Set<UUID> = []
+    /// 直近で解放されたバッジ（祝福UI のトリガー）
+    @Published var newlyUnlockedBadges: [Badge] = []
     @Published var searchText: String = ""
     @Published var selectedPrefecture: String? = nil
     @Published var selectedTypes: Set<Onsen.OnsenType> = []
@@ -197,6 +200,19 @@ final class OnsenViewModel: ObservableObject {
         persistence.saveUserName(name)
     }
 
+    // MARK: - Wishlist
+    func isWishlisted(_ onsen: Onsen) -> Bool { wishlistIds.contains(onsen.id) }
+
+    func toggleWishlist(_ onsen: Onsen) {
+        if wishlistIds.contains(onsen.id) { wishlistIds.remove(onsen.id) }
+        else                              { wishlistIds.insert(onsen.id) }
+        persistence.saveWishlistIds(wishlistIds)
+    }
+
+    var wishlistOnsens: [Onsen] {
+        allOnsens.filter { wishlistIds.contains($0.id) && !visitedIds.contains($0.id) }
+    }
+
     /// カスタム称号を設定・保存する
     func setCustomDisplayTitle(_ title: String) {
         customDisplayTitle = title
@@ -250,8 +266,17 @@ final class OnsenViewModel: ObservableObject {
         if !visitedSecretIds.isEmpty { nb.insert("secret_onsen") }
 
         if nb != unlockedBadgeIds {
+            // 新規解放バッジを抽出してUIに通知
+            let justUnlocked = nb.subtracting(unlockedBadgeIds)
+            newlyUnlockedBadges = Badge.all.filter { justUnlocked.contains($0.id) }
             unlockedBadgeIds = nb
             persistence.saveUnlockedBadgeIds(nb)
+            // ローカル通知を送る
+            Task {
+                for badge in newlyUnlockedBadges {
+                    await NotificationService.shared.scheduleBadgeUnlock(badge)
+                }
+            }
         }
     }
 
@@ -272,6 +297,7 @@ final class OnsenViewModel: ObservableObject {
         visits             = persistence.loadVisits()
         visitedIds         = persistence.loadVisitedIds()
         unlockedBadgeIds   = persistence.loadUnlockedBadgeIds()
+        wishlistIds        = persistence.loadWishlistIds()
         userName           = persistence.loadUserName()
         customDisplayTitle = persistence.loadCustomDisplayTitle() ?? currentTitle.name
     }

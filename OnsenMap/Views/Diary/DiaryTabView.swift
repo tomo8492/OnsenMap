@@ -55,6 +55,35 @@ struct DiaryTabView: View {
                         }
                         .listRowInsets(EdgeInsets())
 
+                        // ─── 行きたいリスト ───
+                        if !viewModel.wishlistOnsens.isEmpty {
+                            Section {
+                                ForEach(viewModel.wishlistOnsens.prefix(5)) { onsen in
+                                    HStack(spacing: 10) {
+                                        Text(onsen.onsenType.icon)
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text(onsen.name)
+                                                .font(.subheadline)
+                                                .fontWeight(.medium)
+                                            Text(onsen.prefecture)
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                        Spacer()
+                                        Button {
+                                            viewModel.toggleWishlist(onsen)
+                                        } label: {
+                                            Image(systemName: "heart.fill")
+                                                .foregroundStyle(.pink)
+                                        }
+                                    }
+                                }
+                            } header: {
+                                Label("行きたいリスト (\(viewModel.wishlistOnsens.count))", systemImage: "heart.fill")
+                                    .foregroundStyle(.pink)
+                            }
+                        }
+
                         // ─── 広告 ───
                         Section {
                             AdBannerView(adUnitID: "ca-app-pub-XXXXXXXXXXXXXXXX/XXXXXXXXXX")
