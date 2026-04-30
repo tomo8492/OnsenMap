@@ -322,10 +322,18 @@ struct VisitSummaryRow: View {
     }
 }
 
-// MARK: - Nearby Hotels Section（楽天トラベル アフィリエイト）
+// MARK: - Nearby Hotels Section（楽天トラベル + じゃらん アフィリエイト）
 
 struct NearbyHotelsSection: View {
     let onsen: Onsen
+
+    enum Provider: String, CaseIterable, Identifiable {
+        case rakuten = "楽天トラベル"
+        case jalan   = "じゃらん"
+        var id: String { rawValue }
+    }
+
+    @State private var selectedProvider: Provider = .rakuten
     @State private var hotels: [RakutenHotel] = []
     @State private var loadState: LoadState = .idle
 
@@ -340,78 +348,158 @@ struct NearbyHotelsSection: View {
 
     var body: some View {
         DetailSection(title: "この温泉の近くに泊まる") {
-            switch loadState {
-            case .idle:
-                Button {
-                    Task { await load() }
-                } label: {
-                    HStack(spacing: 10) {
-                        Image(systemName: "bed.double.fill")
-                            .foregroundStyle(.white)
-                            .frame(width: 28, height: 28)
-                            .background(Color(red: 0.75, green: 0.0, blue: 0.0))
-                            .clipShape(Circle())
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("近くの宿を探す")
-                                .font(.subheadline)
-                                .fontWeight(.semibold)
-                                .foregroundStyle(.primary)
-                            Text("楽天トラベルで周辺3km以内を検索")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .foregroundStyle(.secondary)
-                            .font(.caption)
-                    }
-                    .padding(.vertical, 4)
+            // ─── プロバイダー切り替え ───
+            Picker("予約サイト", selection: $selectedProvider) {
+                ForEach(Provider.allCases) { provider in
+                    Text(provider.rawValue).tag(provider)
                 }
-                .buttonStyle(.plain)
+            }
+            .pickerStyle(.segmented)
+            .onChange(of: selectedProvider) { _, _ in
+                // タブ切り替え時に状態リセット
+                hotels = []
+                loadState = .idle
+            }
 
-            case .loading:
-                HStack(spacing: 8) {
-                    ProgressView().scaleEffect(0.8)
-                    Text("検索中...").font(.caption).foregroundStyle(.secondary)
-                }
-                .padding(.vertical, 6)
-
-            case .loaded:
-                VStack(spacing: 8) {
-                    ForEach(hotels) { hotel in
-                        HotelRow(hotel: hotel)
-                        if hotel.id != hotels.last?.id { Divider() }
-                    }
-                }
-                fallbackLink
-                attributionFooter
-
-            case .empty:
-                Text("半径3km以内に楽天トラベル掲載の宿が見つかりませんでした。")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                fallbackLink
-                attributionFooter
-
-            case .failed(let msg):
-                Text("一覧の取得に失敗しました: \(msg)")
-                    .font(.caption2)
-                    .foregroundStyle(.red)
-                fallbackLink
-                attributionFooter
-
-            case .notConfigured:
-                Text("楽天トラベルで「\(onsen.name)」付近の宿を検索できます。")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                fallbackLink
-                attributionFooter
+            // ─── プロバイダー別コンテンツ ───
+            switch selectedProvider {
+            case .rakuten: rakutenContent
+            case .jalan:   jalanContent
             }
         }
     }
 
-    // MARK: - Fallback / Attribution
-    private var fallbackLink: some View {
+    // MARK: - Rakuten
+    @ViewBuilder
+    private var rakutenContent: some View {
+        switch loadState {
+        case .idle:
+            Button {
+                Task { await loadRakuten() }
+            } label: {
+                searchCTA(provider: .rakuten,
+                          subtitle: "楽天トラベルで周辺3km以内を検索")
+            }
+            .buttonStyle(.plain)
+
+        case .loading:
+            loadingRow
+
+        case .loaded:
+            VStack(spacing: 8) {
+                ForEach(hotels) { hotel in
+                    HotelRow(hotel: hotel)
+                    if hotel.id != hotels.last?.id { Divider() }
+                }
+            }
+            rakutenFallbackLink
+            attributionFooter(text: "提供: 楽天トラベル")
+
+        case .empty:
+            Text("半径3km以内に楽天トラベル掲載の宿が見つかりませんでした。")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            rakutenFallbackLink
+            attributionFooter(text: "提供: 楽天トラベル")
+
+        case .failed(let msg):
+            Text("一覧の取得に失敗しました: \(msg)")
+                .font(.caption2)
+                .foregroundStyle(.red)
+            rakutenFallbackLink
+            attributionFooter(text: "提供: 楽天トラベル")
+
+        case .notConfigured:
+            Text("楽天トラベルで「\(onsen.name)」付近の宿を検索できます。")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            rakutenFallbackLink
+            attributionFooter(text: "提供: 楽天トラベル")
+        }
+    }
+
+    // MARK: - Jalan
+    @ViewBuilder
+    private var jalanContent: some View {
+        VStack(spacing: 10) {
+            Text("じゃらん net で「\(onsen.name)」付近の宿を検索できます。")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            Link(destination: JalanTravelService.shared.nearbySearchURL(for: onsen)) {
+                HStack {
+                    Image(systemName: "map.fill")
+                    Text("半径3km以内の宿を探す")
+                        .fontWeight(.semibold)
+                    Spacer()
+                    Image(systemName: "arrow.up.right.square")
+                }
+                .font(.subheadline)
+                .foregroundStyle(.white)
+                .padding(.vertical, 10)
+                .padding(.horizontal, 12)
+                .background(Color(red: 1.0, green: 0.4, blue: 0.0))
+                .cornerRadius(10)
+            }
+
+            Link(destination: JalanTravelService.shared.searchURL(for: onsen)) {
+                HStack {
+                    Image(systemName: "magnifyingglass")
+                    Text("「\(onsen.name)」を名前で検索")
+                        .fontWeight(.medium)
+                        .lineLimit(1)
+                    Spacer()
+                }
+                .font(.caption)
+                .foregroundStyle(.orange)
+                .padding(.vertical, 8)
+                .padding(.horizontal, 12)
+                .background(Color.orange.opacity(0.1))
+                .cornerRadius(8)
+            }
+
+            attributionFooter(text: "提供: じゃらん net")
+        }
+    }
+
+    // MARK: - Helpers
+
+    private func searchCTA(provider: Provider, subtitle: String) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "bed.double.fill")
+                .foregroundStyle(.white)
+                .frame(width: 28, height: 28)
+                .background(provider == .rakuten
+                    ? Color(red: 0.75, green: 0.0, blue: 0.0)
+                    : Color(red: 1.0, green: 0.4, blue: 0.0))
+                .clipShape(Circle())
+            VStack(alignment: .leading, spacing: 2) {
+                Text("近くの宿を探す")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.primary)
+                Text(subtitle)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Image(systemName: "chevron.right")
+                .foregroundStyle(.secondary)
+                .font(.caption)
+        }
+        .padding(.vertical, 4)
+    }
+
+    private var loadingRow: some View {
+        HStack(spacing: 8) {
+            ProgressView().scaleEffect(0.8)
+            Text("検索中...").font(.caption).foregroundStyle(.secondary)
+        }
+        .padding(.vertical, 6)
+    }
+
+    private var rakutenFallbackLink: some View {
         Link(destination: RakutenTravelService.shared.fallbackSearchURL(for: onsen)) {
             HStack {
                 Image(systemName: "arrow.up.right.square.fill")
@@ -430,15 +518,16 @@ struct NearbyHotelsSection: View {
         .padding(.top, 6)
     }
 
-    private var attributionFooter: some View {
-        Text("提供: 楽天トラベル")
+    private func attributionFooter(text: String) -> some View {
+        Text(text)
             .font(.caption2)
             .foregroundStyle(.secondary)
             .padding(.top, 2)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     // MARK: - Loader
-    private func load() async {
+    private func loadRakuten() async {
         guard AffiliateConfig.isRakutenConfigured else {
             loadState = .notConfigured
             return

@@ -153,6 +153,68 @@ OnsenMap/
 
 ---
 
+## OnsenMap Pro（StoreKit 2 IAP）
+
+Pro 機能（広告非表示・写真無制限・CSVエクスポート）を **買い切り ¥980** で提供します。
+
+### App Store Connect 側の設定
+
+1. App Store Connect → アプリ → **App内課金** → **+** で新規作成
+2. **タイプ**: 「非消耗型」
+3. **製品ID**: `com.yourcompany.OnsenMap.lifetime_pro`（`Services/StoreManager.swift` の `ProductID.lifetimePro` と一致させる）
+4. **参照名**: `Lifetime Pro`
+5. 価格: ¥980（または好きな価格）
+6. ローカライゼーション（日本語）:
+   - 表示名: `OnsenMap Pro`
+   - 説明: `OnsenMap のすべての特典を一度の購入で永続的に利用できます。広告非表示・写真無制限・CSVエクスポート・詳細統計などが含まれます。`
+
+### Xcode のローカルテスト設定
+
+実機・実 Apple ID で課金することなく、StoreKit Configuration ファイルでローカルテストできます。
+
+1. `OnsenMap/Resources/Configuration.storekit` を Xcode の Project Navigator にドラッグ
+2. Edit Scheme → **Run** → **Options** タブ → **StoreKit Configuration** で `Configuration.storekit` を選択
+3. ビルド & 実行 → プロフィール → 「OnsenMap Pro」をタップ → 課金フローをローカルで試せる
+4. Xcode メニュー → Debug → StoreKit → Manage Transactions で購入リセット可能
+
+### 動作確認チェックリスト
+
+- [ ] Pro未購入: バナー広告が表示される
+- [ ] Pro購入後: バナー広告が `EmptyView()` で非表示になる
+- [ ] Pro購入後: 写真選択枚数が無制限 (`maxSelectionCount: 0`)
+- [ ] Pro購入後: 「データ管理」→「CSVエクスポート」が有効化される
+- [ ] アプリ削除→再インストール後、「購入を復元」で `purchasedProductIDs` が復元される
+
+---
+
+## AdMob インタースティシャル（称号アップグレード時）
+
+`Services/InterstitialAdManager.swift` で、称号がアップグレードされた瞬間にインタースティシャル広告を表示します。
+
+- 起動時に `preload()` で広告をロード
+- `OnsenViewModel.addVisit()` 内で title.id の差分検知 → `showIfReady()`
+- 連続表示防止: 同一セッション内で 90 秒以上の間隔
+- Pro ユーザーには絶対に表示しない (`StoreManager.shared.isPro` チェック)
+
+### テスト用 ID（DEBUG ビルド）
+
+`ca-app-pub-3940256099942544/4411468910`（Google公式テスト広告）
+
+### 本番用 ID
+
+`Services/InterstitialAdManager.swift` の `productionAdUnitID` を AdMob で発行した本番 ID に書き換えてください。
+
+### GoogleMobileAds SDK の組み込み
+
+```
+File → Add Package Dependencies →
+URL: https://github.com/googleads/swift-package-manager-google-mobile-ads
+```
+
+SDK が組み込まれると `#if canImport(GoogleMobileAds)` ブロックが有効になり、自動でインタースティシャル機能が動き出します。
+
+---
+
 ## 楽天トラベル アフィリエイトの設定（送客収益化）
 
 温泉の詳細画面から「近くの宿を探す」セクションで楽天トラベル経由の宿予約に送客し、
@@ -189,6 +251,24 @@ enum AffiliateConfig {
 - 楽天トラベル API は1秒1回程度のレート制限があります
 - アフィリエイトリンクの有効期間は30日（クッキー）
 - App Store の審査では特に問題になりません（外部 Web ブラウザに遷移するため）
+
+---
+
+## じゃらん net アフィリエイトの設定（楽天と並列）
+
+`Services/JalanTravelService.swift` 経由でじゃらん net への送客 URL を組み立てます。
+v1 では API でのインライン一覧は未対応（XML応答のため）ですが、検索URLでの送客で同等のアフィリエイト報酬が得られます。
+
+### ValueCommerce LinkSwitch を使う場合
+
+1. [ValueCommerce](https://affiliate.valuecommerce.ne.jp/) でアフィリエイト登録
+2. じゃらん net プログラムに参加（審査あり）
+3. 広告タグの `sid` `pid` を取得（例: `sid=3000000&pid=880000000`）
+4. `Services/JalanTravelService.swift` の `AffiliateConfig.valueCommerceJalanQuery` に値を設定
+
+### リクルートWebサービス API を使う場合（v2 検討）
+
+XMLパーサー実装が必要なため v1 では非対応。`AffiliateConfig.jalanApiKey` に取得した API キーを保存しておくと、v2 アップデートで自動有効化されます。
 
 ---
 

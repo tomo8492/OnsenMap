@@ -1,0 +1,44 @@
+{
+  "identifier" : "OnsenMapStoreKitConfig",
+  "nonRenewingSubscriptions" : [],
+  "products" : [
+    {
+      "displayPrice" : "980",
+      "familyShareable" : false,
+      "internalID" : "1A2B3C4D",
+      "localizations" : [
+        {
+          "description" : "OnsenMap のすべての特典を一度の購入で永続的に利用できます。広告非表示・写真無制限・CSVエクスポート・詳細統計などが含まれます。",
+          "displayName" : "OnsenMap Pro",
+          "locale" : "ja_JP"
+        }
+      ],
+      "productID" : "com.yourcompany.OnsenMap.lifetime_pro",
+      "referenceName" : "Lifetime Pro",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {
+    "_compatibilityTimeRate" : 1,
+    "_failTransactionsEnabled" : false,
+    "_locale" : "ja_JP",
+    "_storefront" : "JPN",
+    "_storeKitErrors" : [
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Load Products"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Purchase"
+      }
+    ]
+  },
+  "subscriptionGroups" : [],
+  "version" : {
+    "major" : 4,
+    "minor" : 0
+  }
+}

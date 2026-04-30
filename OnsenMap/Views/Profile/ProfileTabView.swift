@@ -3,8 +3,10 @@ import SwiftUI
 // MARK: - Profile Tab View
 struct ProfileTabView: View {
     @EnvironmentObject var viewModel: OnsenViewModel
+    @ObservedObject private var store = StoreManager.shared
     @State private var showingNameEdit = false
     @State private var showingShare = false
+    @State private var showingPaywall = false
     @State private var newName = ""
 
     var body: some View {
@@ -73,6 +75,46 @@ struct ProfileTabView: View {
                     CloudSyncRow()
                 }
 
+                // ─── OnsenMap Pro ───
+                Section {
+                    Button {
+                        showingPaywall = true
+                    } label: {
+                        HStack(spacing: 12) {
+                            ZStack {
+                                Circle()
+                                    .fill(LinearGradient(colors: [.orange, .red],
+                                                         startPoint: .topLeading,
+                                                         endPoint: .bottomTrailing))
+                                    .frame(width: 36, height: 36)
+                                Image(systemName: "crown.fill")
+                                    .foregroundStyle(.white)
+                                    .font(.subheadline)
+                            }
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(store.isPro ? "OnsenMap Pro（購入済み）" : "OnsenMap Pro")
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
+                                    .foregroundStyle(.primary)
+                                Text(store.isPro
+                                     ? "ご利用ありがとうございます！"
+                                     : "広告非表示・写真無制限・CSVエクスポート")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            if store.isPro {
+                                Image(systemName: "checkmark.seal.fill")
+                                    .foregroundStyle(.green)
+                            } else {
+                                Image(systemName: "chevron.right")
+                                    .foregroundStyle(.secondary)
+                                    .font(.caption)
+                            }
+                        }
+                    }
+                }
+
                 // ─── 友達とシェア ───
                 Section("友達とシェア") {
                     Button {
@@ -129,6 +171,9 @@ struct ProfileTabView: View {
             .navigationTitle("プロフィール")
             .sheet(isPresented: $showingShare) {
                 SocialShareView()
+            }
+            .sheet(isPresented: $showingPaywall) {
+                PaywallView()
             }
             .alert("名前を変更", isPresented: $showingNameEdit) {
                 TextField("ニックネーム", text: $newName)
@@ -265,7 +310,10 @@ struct VisitedPrefecturesView: View {
 // MARK: - Data Management View
 struct DataManagementView: View {
     @EnvironmentObject var viewModel: OnsenViewModel
+    @ObservedObject private var store = StoreManager.shared
     @State private var showingClearAlert = false
+    @State private var showingPaywall = false
+    @State private var exportedFileURL: URL?
 
     var body: some View {
         List {
@@ -284,6 +332,35 @@ struct DataManagementView: View {
                 }
             } header: {
                 Text("保存データ")
+            }
+
+            Section {
+                Button {
+                    if store.isPro {
+                        if let url = viewModel.exportVisitsAsCSV() {
+                            exportedFileURL = url
+                        }
+                    } else {
+                        showingPaywall = true
+                    }
+                } label: {
+                    HStack {
+                        Label("CSV エクスポート", systemImage: "square.and.arrow.up")
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        if !store.isPro {
+                            Label("Pro", systemImage: "crown.fill")
+                                .font(.caption2)
+                                .foregroundStyle(.orange)
+                        }
+                    }
+                }
+            } header: {
+                Text("エクスポート")
+            } footer: {
+                Text(store.isPro
+                     ? "全訪問記録を CSV ファイルとして書き出します。"
+                     : "Pro にアップグレードすると CSV エクスポートが利用できます。")
             }
 
             Section {
@@ -308,7 +385,32 @@ struct DataManagementView: View {
         } message: {
             Text("すべての訪問記録と日記が削除されます。この操作は取り消せません。")
         }
+        .sheet(isPresented: $showingPaywall) {
+            PaywallView()
+        }
+        .sheet(item: Binding<IdentifiedURL?>(
+            get: { exportedFileURL.map { IdentifiedURL(url: $0) } },
+            set: { exportedFileURL = $0?.url }
+        )) { wrapped in
+            ShareSheet(items: [wrapped.url])
+        }
     }
+}
+
+// MARK: - Identified URL（sheet(item:) 用ラッパー）
+private struct IdentifiedURL: Identifiable {
+    let url: URL
+    var id: String { url.absoluteString }
+}
+
+// MARK: - Share Sheet
+struct ShareSheet: UIViewControllerRepresentable {
+    let items: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
 // MARK: - iCloud Sync Row

@@ -185,7 +185,8 @@ final class RakutenTravelService {
     func fallbackSearchURL(for onsen: Onsen) -> URL {
         let keyword = onsen.name
         let encodedKW = keyword.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? keyword
-        let plain = "https://travel.rakuten.co.jp/dsearch/?f_keyword=\(encodedKW)"
+        // 温泉特集ページのキーワード検索（楽天で 200 返すことを動作確認済み）
+        let plain = "https://travel.rakuten.co.jp/onsen/?keyword=\(encodedKW)"
 
         if let affId = AffiliateConfig.rakutenAffiliateId, !affId.isEmpty,
            let pcEncoded = plain.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) {

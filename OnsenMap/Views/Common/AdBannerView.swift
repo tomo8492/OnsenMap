@@ -17,10 +17,17 @@ struct AdBannerView: View {
     // テスト用 ID: "ca-app-pub-3940256099942544/2934735716"
     let adUnitID: String
 
+    @ObservedObject private var store = StoreManager.shared
+
     var body: some View {
-        // AdMob SDK が組み込まれたら下のプレースホルダーを
-        // GADBannerViewRepresentable(adUnitID: adUnitID) に置き換えてください
-        AdPlaceholderBanner()
+        // Pro ユーザーには広告を表示しない
+        if store.isPro {
+            EmptyView()
+        } else {
+            // AdMob SDK が組み込まれたら下のプレースホルダーを
+            // GADBannerViewRepresentable(adUnitID: adUnitID) に置き換えてください
+            AdPlaceholderBanner()
+        }
     }
 }
 
@@ -67,24 +74,30 @@ struct GADBannerViewRepresentable: UIViewRepresentable {
 
 // MARK: - Large Rectangle Ad (記事間広告)
 struct AdRectangleView: View {
+    @ObservedObject private var store = StoreManager.shared
+
     var body: some View {
-        ZStack {
-            Color(.systemGray6)
-            VStack(spacing: 4) {
-                Image(systemName: "megaphone.fill")
-                    .font(.title2)
-                    .foregroundStyle(.secondary)
-                Text("広告")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+        if store.isPro {
+            EmptyView()
+        } else {
+            ZStack {
+                Color(.systemGray6)
+                VStack(spacing: 4) {
+                    Image(systemName: "megaphone.fill")
+                        .font(.title2)
+                        .foregroundStyle(.secondary)
+                    Text("広告")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
             }
+            .frame(height: 250)
+            .cornerRadius(8)
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color(.systemGray4), lineWidth: 0.5)
+            )
+            .padding(.horizontal)
         }
-        .frame(height: 250)
-        .cornerRadius(8)
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(Color(.systemGray4), lineWidth: 0.5)
-        )
-        .padding(.horizontal)
     }
 }

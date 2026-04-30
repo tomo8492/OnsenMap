@@ -218,11 +218,21 @@ final class OnsenViewModel: ObservableObject {
     }
 
     func addVisit(_ visit: Visit) {
+        let titleBefore = currentTitle
         visits.insert(visit, at: 0)
         let isFirstVisitToOnsen = !visitedIds.contains(visit.onsenId)
         visitedIds.insert(visit.onsenId)
         saveUserData()
         checkBadges()
+
+        // 称号アップグレード時にインタースティシャル広告を表示
+        let titleAfter = currentTitle
+        if titleAfter.id > titleBefore.id {
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(1.5))
+                InterstitialAdManager.shared.showIfReady()
+            }
+        }
 
         Task {
             await cloudSync.upsert(visit: visit)
@@ -329,6 +339,52 @@ final class OnsenViewModel: ObservableObject {
                 }
             }
         }
+    }
+
+    // MARK: - CSV Export (Pro 限定)
+    /// 全訪問記録を CSV としてエクスポートし、一時ファイルの URL を返す。
+    func exportVisitsAsCSV() -> URL? {
+        let header = "日付,温泉名,評価,気分,天気,入浴時間(分),同行者,メモ"
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withFullDate, .withTime, .withDashSeparatorInDate, .withColonSeparatorInTime]
+
+        var lines: [String] = [header]
+        for v in visits.sorted(by: { $0.date < $1.date }) {
+            let row = [
+                formatter.string(from: v.date),
+                csvEscape(v.onsenName),
+                String(v.rating),
+                v.mood.rawValue,
+                v.weather?.rawValue ?? "",
+                v.soakDurationMinutes.map(String.init) ?? "",
+                csvEscape(v.companions.joined(separator: " ")),
+                csvEscape(v.notes)
+            ].joined(separator: ",")
+            lines.append(row)
+        }
+
+        let csv = lines.joined(separator: "\n")
+        let filename = "OnsenMap_export_\(Int(Date().timeIntervalSince1970)).csv"
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
+        do {
+            // Excel互換のため UTF-8 BOM を付与
+            var data = Data([0xEF, 0xBB, 0xBF])
+            data.append(csv.data(using: .utf8) ?? Data())
+            try data.write(to: url)
+            return url
+        } catch {
+            print("⚠️ CSV export failed: \(error)")
+            return nil
+        }
+    }
+
+    private func csvEscape(_ value: String) -> String {
+        // CSV では カンマ・改行・ダブルクォートを含む場合は "" でラップして " を二重化
+        if value.contains(",") || value.contains("\"") || value.contains("\n") {
+            let escaped = value.replacingOccurrences(of: "\"", with: "\"\"")
+            return "\"\(escaped)\""
+        }
+        return value
     }
 
     // MARK: - Share

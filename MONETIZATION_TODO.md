@@ -22,6 +22,34 @@
   - **広告より ROI の高い送客収益のチャネルが開通**
   - 残: 楽天デベロッパーで Application ID + アフィリエイト ID を取得して `AffiliateConfig` に設定する
 
+- [x] **じゃらん net アフィリエイト並列対応**（2026-04-30）
+  - `JalanTravelService.swift` 新規追加（ValueCommerce LinkSwitch 経由）
+  - `NearbyHotelsSection` を「楽天 / じゃらん」セグメント切替式に拡張
+  - 周辺地図検索 URL + 名前検索 URL の2導線
+  - **CTR 底上げと、楽天と異なるユーザー層の捕捉**
+
+- [x] **StoreKit 2 で OnsenMap Pro IAP**（2026-04-30）
+  - `StoreManager.swift`（@MainActor + Transaction.updates 監視）
+  - `PaywallView.swift`（Pro特典訴求 + 購入 + 購入復元）
+  - 買い切り ¥980（製品 ID: `com.yourcompany.OnsenMap.lifetime_pro`）
+  - `Resources/Configuration.storekit` でローカルテスト可能
+  - Pro特典の実装:
+    - [x] `AdBannerView` / `AdRectangleView` を `isPro` で非表示化
+    - [x] `AddVisitView` の写真選択を Pro なら無制限 (maxSelectionCount: 0)
+    - [x] `DataManagementView` に CSV エクスポート（Pro 限定）
+    - [ ] PDF エクスポート（フォローアップ）
+    - [ ] 詳細統計の年別/月別グラフ（フォローアップ）
+  - **広告依存からの脱却 + 確実な単価収益チャネル**
+  - 残: App Store Connect で IAP 商品登録 → Configuration.storekit を Xcode に追加 → ローカル動作確認
+
+- [x] **AdMob インタースティシャル（称号アップグレード時）**（2026-04-30）
+  - `InterstitialAdManager.swift` 新規追加（`#if canImport(GoogleMobileAds)` で SDK未導入時もスタブ動作）
+  - `OnsenViewModel.addVisit()` で title.id 差分検知 → `showIfReady()`
+  - 90秒間隔のクールダウン制御
+  - Pro ユーザーには preload も show もしない
+  - **eCPMが高く、達成演出と相性が良い タイミング広告**
+  - 残: GoogleMobileAds SDK 組み込み + 本番 Ad Unit ID 設定
+
 ---
 
 ## 🔴 リリース前ブロッカー（App Store 審査で弾かれる）

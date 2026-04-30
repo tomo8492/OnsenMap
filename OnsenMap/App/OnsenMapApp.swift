@@ -22,6 +22,10 @@ struct OnsenMapApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(viewModel)
+                .task {
+                    // インタースティシャル広告のプリロード
+                    InterstitialAdManager.shared.preload()
+                }
                 .onChange(of: scenePhase) { _, newPhase in
                     // フォアグラウンド復帰時に iCloud 同期を再実行
                     if newPhase == .active {

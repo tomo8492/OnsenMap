@@ -17,6 +17,11 @@ struct AddVisitView: View {
     @State private var soakDuration: String = ""
     @State private var selectedPhotoItems: [PhotosPickerItem] = []
     @State private var selectedPhotos: [UIImage] = []
+    @State private var showingPaywall = false
+    @ObservedObject private var store = StoreManager.shared
+
+    /// 写真の最大選択枚数。Pro なら無制限 (0 = 無制限) / 無料は 5 枚
+    private var photoLimit: Int { store.isPro ? 0 : 5 }
 
     var body: some View {
         NavigationStack {
@@ -169,9 +174,19 @@ struct AddVisitView: View {
                 // ─── 写真 ───
                 Section("写真") {
                     PhotosPicker(selection: $selectedPhotoItems,
-                                 maxSelectionCount: 5,
+                                 maxSelectionCount: photoLimit,
                                  matching: .images) {
-                        Label("写真を選ぶ（最大5枚）", systemImage: "photo.on.rectangle.angled")
+                        Label(store.isPro ? "写真を選ぶ（無制限）" : "写真を選ぶ（最大5枚）",
+                              systemImage: "photo.on.rectangle.angled")
+                    }
+                    if !store.isPro {
+                        Button {
+                            showingPaywall = true
+                        } label: {
+                            Label("Pro で写真を無制限に", systemImage: "crown.fill")
+                                .font(.caption)
+                                .foregroundStyle(.orange)
+                        }
                     }
                     .onChange(of: selectedPhotoItems) { _, items in
                         Task {
@@ -212,6 +227,9 @@ struct AddVisitView: View {
                         .fontWeight(.bold)
                         .foregroundStyle(.orange)
                 }
+            }
+            .sheet(isPresented: $showingPaywall) {
+                PaywallView()
             }
         }
     }
