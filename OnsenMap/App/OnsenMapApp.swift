@@ -4,6 +4,7 @@ import SwiftUI
 struct OnsenMapApp: App {
 
     @StateObject private var viewModel = OnsenViewModel()
+    @Environment(\.scenePhase) private var scenePhase
 
     init() {
         // ─── Google AdMob 初期化 ───
@@ -21,6 +22,12 @@ struct OnsenMapApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(viewModel)
+                .onChange(of: scenePhase) { _, newPhase in
+                    // フォアグラウンド復帰時に iCloud 同期を再実行
+                    if newPhase == .active {
+                        Task { await viewModel.initialCloudSync() }
+                    }
+                }
         }
     }
 }

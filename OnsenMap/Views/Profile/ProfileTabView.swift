@@ -68,6 +68,11 @@ struct ProfileTabView: View {
                     }
                 }
 
+                // ─── iCloud 同期 ───
+                Section("iCloud同期") {
+                    CloudSyncRow()
+                }
+
                 // ─── 友達とシェア ───
                 Section("友達とシェア") {
                     Button {
@@ -302,6 +307,72 @@ struct DataManagementView: View {
             Button("キャンセル", role: .cancel) {}
         } message: {
             Text("すべての訪問記録と日記が削除されます。この操作は取り消せません。")
+        }
+    }
+}
+
+// MARK: - iCloud Sync Row
+struct CloudSyncRow: View {
+    @EnvironmentObject var viewModel: OnsenViewModel
+    @ObservedObject private var sync = CloudKitSyncService.shared
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                Image(systemName: iconName)
+                    .foregroundStyle(iconColor)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("iCloudに記録を同期")
+                        .font(.subheadline)
+                    Text(sync.state.statusText)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button {
+                    Task { await viewModel.initialCloudSync() }
+                } label: {
+                    if case .syncing = sync.state {
+                        ProgressView().scaleEffect(0.8)
+                    } else {
+                        Image(systemName: "arrow.clockwise")
+                            .foregroundStyle(.orange)
+                    }
+                }
+                .disabled(isSyncing)
+            }
+
+            if case .unavailable = sync.state {
+                Text("「設定 > iCloud」からログインすると、機種変更してもデータが引き継げます。")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.vertical, 2)
+    }
+
+    private var isSyncing: Bool {
+        if case .syncing = sync.state { return true }
+        return false
+    }
+
+    private var iconName: String {
+        switch sync.state {
+        case .synced:        return "checkmark.icloud.fill"
+        case .syncing:       return "icloud.and.arrow.down"
+        case .failed:        return "exclamationmark.icloud.fill"
+        case .unavailable:   return "icloud.slash"
+        case .idle:          return "icloud"
+        }
+    }
+
+    private var iconColor: Color {
+        switch sync.state {
+        case .synced:        return .green
+        case .syncing:       return .orange
+        case .failed:        return .red
+        case .unavailable:   return .gray
+        case .idle:          return .secondary
         }
     }
 }

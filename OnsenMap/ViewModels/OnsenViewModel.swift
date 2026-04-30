@@ -21,6 +21,7 @@ final class OnsenViewModel: ObservableObject {
     // DataRepository を通じてデータを取得
     let repository = OnsenDataRepository.shared
     private let persistence = PersistenceService.shared
+    let cloudSync = CloudKitSyncService.shared
     private var cancellables = Set<AnyCancellable>()
 
     // MARK: - Init
@@ -37,6 +38,68 @@ final class OnsenViewModel: ObservableObject {
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in self?.objectWillChange.send() }
             .store(in: &cancellables)
+
+        // CloudKit 同期状態の変更を View に伝播
+        cloudSync.$state
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+            .store(in: &cancellables)
+
+        // 起動時に iCloud から pull → ローカルとマージ
+        Task { await self.initialCloudSync() }
+    }
+
+    // MARK: - Initial Cloud Sync
+    /// 起動時に iCloud から最新データを取得し、ローカルとユニオンマージする。
+    /// オフライン or iCloud未ログイン時は何もせずローカルのみで動作。
+    func initialCloudSync() async {
+        await cloudSync.refreshAccountStatus()
+        guard cloudSync.iCloudAvailable else { return }
+
+        guard let snap = try? await cloudSync.pullSnapshot() else { return }
+
+        // Visits: id ベースでユニオン（同一 id はクラウド優先）
+        var mergedVisitsById = Dictionary(uniqueKeysWithValues: visits.map { ($0.id, $0) })
+        for v in snap.visits { mergedVisitsById[v.id] = v }
+        visits = mergedVisitsById.values.sorted { $0.date > $1.date }
+
+        // VisitedIds: ユニオン
+        visitedIds.formUnion(snap.visitedIds)
+
+        // Badges: ユニオン
+        unlockedBadgeIds.formUnion(snap.unlockedBadges)
+
+        // UserName: クラウドにあればそちらを優先
+        if let cloudName = snap.userName, !cloudName.isEmpty {
+            userName = cloudName
+            persistence.saveUserName(cloudName)
+        }
+
+        // Custom onsens: Repository 側でマージ
+        repository.mergeCustomOnsensFromCloud(snap.customOnsens)
+
+        saveUserData()
+        checkBadges()
+
+        // ローカルにあってクラウドに無い分を push（初回登録ユーザー対応）
+        await pushLocalOnlyChangesAfterMerge(cloudSnapshot: snap)
+    }
+
+    /// マージ後、ローカルだけにあった記録をクラウドへアップロードする
+    private func pushLocalOnlyChangesAfterMerge(cloudSnapshot snap: CloudKitSyncService.Snapshot) async {
+        let cloudVisitIds = Set(snap.visits.map { $0.id })
+        for v in visits where !cloudVisitIds.contains(v.id) {
+            await cloudSync.upsert(visit: v)
+        }
+        for id in visitedIds.subtracting(snap.visitedIds) {
+            await cloudSync.upsert(visitedOnsenId: id)
+        }
+        for badgeId in unlockedBadgeIds.subtracting(snap.unlockedBadges) {
+            await cloudSync.upsert(badgeId: badgeId)
+        }
+        if snap.userName == nil || snap.userName?.isEmpty == true {
+            await cloudSync.upsert(userName: userName)
+        }
     }
 
     // MARK: - Computed Properties
@@ -156,23 +219,40 @@ final class OnsenViewModel: ObservableObject {
 
     func addVisit(_ visit: Visit) {
         visits.insert(visit, at: 0)
+        let isFirstVisitToOnsen = !visitedIds.contains(visit.onsenId)
         visitedIds.insert(visit.onsenId)
         saveUserData()
         checkBadges()
+
+        Task {
+            await cloudSync.upsert(visit: visit)
+            if isFirstVisitToOnsen {
+                await cloudSync.upsert(visitedOnsenId: visit.onsenId)
+            }
+        }
     }
 
     func deleteVisit(_ visit: Visit) {
         visits.removeAll { $0.id == visit.id }
-        if !visits.contains(where: { $0.onsenId == visit.onsenId }) {
+        let stillVisited = visits.contains(where: { $0.onsenId == visit.onsenId })
+        if !stillVisited {
             visitedIds.remove(visit.onsenId)
         }
         saveUserData()
+
+        Task {
+            await cloudSync.delete(visitId: visit.id)
+            if !stillVisited {
+                await cloudSync.delete(visitedOnsenId: visit.onsenId)
+            }
+        }
     }
 
     func updateVisit(_ visit: Visit) {
         if let i = visits.firstIndex(where: { $0.id == visit.id }) {
             visits[i] = visit
             saveUserData()
+            Task { await cloudSync.upsert(visit: visit) }
         }
     }
 
@@ -191,6 +271,7 @@ final class OnsenViewModel: ObservableObject {
     func updateUserName(_ name: String) {
         userName = name
         persistence.saveUserName(name)
+        Task { await cloudSync.upsert(userName: name) }
     }
 
     // MARK: - Filters
@@ -238,8 +319,15 @@ final class OnsenViewModel: ObservableObject {
         if !visitedSecretIds.isEmpty { nb.insert("secret_onsen") }
 
         if nb != unlockedBadgeIds {
+            let newlyUnlocked = nb.subtracting(unlockedBadgeIds)
             unlockedBadgeIds = nb
             persistence.saveUnlockedBadgeIds(nb)
+
+            Task {
+                for id in newlyUnlocked {
+                    await cloudSync.upsert(badgeId: id)
+                }
+            }
         }
     }
 

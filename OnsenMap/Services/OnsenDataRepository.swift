@@ -106,15 +106,25 @@ final class OnsenDataRepository: ObservableObject {
     func addCustomOnsen(_ onsen: Onsen) {
         customOnsens.append(onsen)
         saveCustomOnsens()
+        Task { await CloudKitSyncService.shared.upsert(customOnsen: onsen) }
     }
 
     func deleteCustomOnsen(_ onsen: Onsen) {
         customOnsens.removeAll { $0.id == onsen.id }
         saveCustomOnsens()
+        Task { await CloudKitSyncService.shared.delete(customOnsenId: onsen.id) }
     }
 
     private func saveCustomOnsens() {
         persistence.saveCustomOnsens(customOnsens)
+    }
+
+    /// CloudKit から取得したカスタム温泉をローカルにマージ（id ベースのユニオン）
+    func mergeCustomOnsensFromCloud(_ cloudOnsens: [Onsen]) {
+        var byId = Dictionary(uniqueKeysWithValues: customOnsens.map { ($0.id, $0) })
+        for o in cloudOnsens { byId[o.id] = o }
+        customOnsens = Array(byId.values)
+        saveCustomOnsens()
     }
 
     // MARK: - Cache

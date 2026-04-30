@@ -110,6 +110,49 @@ OnsenMap/
 
 ---
 
+## iCloud 同期の設定（CloudKit）
+
+訪問記録・日記・バッジ・カスタム温泉・プロフィール名は **iCloud Private Database** に同期されます。
+ユーザーの iCloud 容量を消費するため、開発者側のサーバー費用は **¥0** です。
+
+### Xcode Capabilities の有効化
+
+1. Xcode → Target `OnsenMap` → **Signing & Capabilities** タブを開く
+2. **+ Capability** から **iCloud** を追加
+3. 以下を有効化:
+   - ✅ **CloudKit**
+   - Containers: `iCloud.com.yourcompany.OnsenMap`（Bundle ID と揃える）
+4. **+ Capability** から **Background Modes** を追加し、`Remote notifications` をオン（任意・将来のプッシュ同期用）
+
+### CloudKit Dashboard でスキーマ確認
+
+初回ビルド・実機テスト時に下記レコードタイプが自動生成されます。
+[CloudKit Dashboard](https://icloud.developer.apple.com/dashboard/) で確認してください。
+
+| Record Type | フィールド | 用途 |
+|---|---|---|
+| `Visit` | id, onsenId, onsenName, date, notes, rating, mood, companions, weather, soakDurationMinutes, photoFileNames | 日記エントリー |
+| `VisitedOnsen` | onsenId | 訪問済み温泉ID |
+| `UnlockedBadge` | badgeId | 解放済みバッジ |
+| `CustomOnsen` | id, name, latitude, longitude ほか | ユーザー追加温泉 |
+| `UserProfile` | userName | ニックネーム（単一レコード `userProfile`） |
+
+> **注意**: 開発環境（Development）でテストした後、リリース前に **Deploy Schema to Production** を実行してください。
+
+### 同期挙動
+
+- **起動時 / フォアグラウンド復帰時**: iCloud から pull → ローカルとユニオンマージ
+- **記録の追加・編集・削除**: ローカル即時保存 + バックグラウンドで CloudKit にプッシュ
+- **iCloud 未ログイン**: ローカルのみで動作（プロフィール画面に「iCloud未ログイン」表示）
+- **オフライン**: ローカル動作のみ。次回オンライン時に再同期
+
+### 既知の制限（v1.0）
+
+- 写真のピクセルデータは未同期（`photoFileNames` のみ同期）。CKAsset 対応は今後の TODO
+- 競合解決は「最後の書き込み勝ち」（CKModifyRecordsOperation の `.changedKeys` policy）
+
+---
+
 ## Google AdMob の設定（広告収益化）
 
 ### AdMob アカウントの作成
@@ -226,7 +269,8 @@ OnsenMap/
 - **MapKit** - 地図表示・周辺検索
 - **CoreLocation** - 位置情報
 - **PhotosUI** - 写真ピッカー
-- **UserDefaults + Codable** - データ永続化
+- **UserDefaults + Codable** - ローカルキャッシュ
+- **CloudKit** - iCloud Private Database 同期（記録・日記・バッジ・カスタム温泉）
 - **Google Mobile Ads SDK** - 広告収益化（要別途インストール）
 
 ## ライセンス
