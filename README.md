@@ -153,6 +153,45 @@ OnsenMap/
 
 ---
 
+## 楽天トラベル アフィリエイトの設定（送客収益化）
+
+温泉の詳細画面から「近くの宿を探す」セクションで楽天トラベル経由の宿予約に送客し、
+**1予約あたり ¥200〜500 程度の成果報酬** を得られます。広告より ROI が高い旅行アプリの定石です。
+
+### 1. 楽天 Application ID を取得
+
+1. [楽天デベロッパーズ](https://webservice.rakuten.co.jp/app/create) でアプリ登録
+2. アプリケーション ID（19桁の数字）が発行される
+
+### 2. 楽天アフィリエイト ID を取得
+
+1. [楽天アフィリエイト](https://affiliate.rakuten.co.jp/) でアカウント登録（無料）
+2. マイページ → 「ID確認」でアフィリエイト ID を取得（形式: `12345678.abcd1234.efgh5678`）
+
+### 3. アプリに ID を設定
+
+`OnsenMap/Services/RakutenTravelService.swift` の `AffiliateConfig` を編集:
+
+```swift
+enum AffiliateConfig {
+    static let rakutenApplicationId: String? = "1234567890123456789"           // ← 取得した値
+    static let rakutenAffiliateId:   String? = "12345678.abcd1234.efgh5678"    // ← 取得した値
+}
+```
+
+### 4. 動作確認
+
+- ID 未設定時: 「楽天トラベルで○○を探す」フォールバックボタンが表示される（アフィリエイト ID があれば成果計上される）
+- ID 設定後: 温泉詳細画面で「近くの宿を探す」をタップ → 半径3km 以内の宿リストが表示される
+
+### 5. 注意事項
+
+- 楽天トラベル API は1秒1回程度のレート制限があります
+- アフィリエイトリンクの有効期間は30日（クッキー）
+- App Store の審査では特に問題になりません（外部 Web ブラウザに遷移するため）
+
+---
+
 ## Google AdMob の設定（広告収益化）
 
 ### AdMob アカウントの作成

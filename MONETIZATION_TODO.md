@@ -13,6 +13,15 @@
   - プロフィール画面に同期ステータス UI 追加
   - **Pro プランの中核機能（クラウド同期）の土台が完成 → 課金理由が立てられるように**
 
+- [x] **楽天トラベル アフィリエイト導入**（2026-04-30）
+  - `RakutenTravelService.swift` + `AffiliateConfig` 新規追加
+  - 温泉詳細画面に「近くの宿を探す」セクションを追加（半径3km以内の宿リスト）
+  - 楽天 SimpleHotelSearch API でホテル検索、評価・最低料金・サムネイル表示
+  - `affiliateId` パラメータ付与でクリック→予約の成果報酬を計上
+  - API 未設定時はフォールバックの楽天トラベル検索URL（アフィリエイトラップ済み）
+  - **広告より ROI の高い送客収益のチャネルが開通**
+  - 残: 楽天デベロッパーで Application ID + アフィリエイト ID を取得して `AffiliateConfig` に設定する
+
 ---
 
 ## 🔴 リリース前ブロッカー（App Store 審査で弾かれる）
@@ -37,12 +46,14 @@
 
 ### ★★★ 必須 — 旅行アプリで最も ROI が高い
 
-- [ ] **楽天トラベル / じゃらん アフィリエイト導入**
-  - `Views/Map/OnsenDetailSheet.swift` に「この温泉付近の宿を探す」ボタン追加
-  - 楽天トラベル API で温泉座標 → 周辺宿検索 → アフィリエイト URL で外部遷移
-  - 想定単価: 1予約 ¥200〜500
-  - 楽天アフィリエイト ID 取得 → `Services/AffiliateService.swift` 新設
-- [ ] **じゃらん net Webサービス対応**（楽天と並列で提示）
+- [x] **楽天トラベル アフィリエイト導入** ← 完了（コード側）
+  - `Services/RakutenTravelService.swift` 実装済み
+  - `Views/Map/OnsenDetailSheet.swift` に `NearbyHotelsSection` を組み込み済み
+  - **要対応**: 楽天デベロッパーで Application ID + アフィリエイト ID を取得して `AffiliateConfig` に設定
+- [ ] **じゃらん net Webサービス対応**（楽天と並列で提示してCTRを底上げ）
+  - リクルート Webサービス API の利用申請
+  - `JalanTravelService.swift` を同パターンで実装し、`NearbyHotelsSection` にタブ表示
+- [ ] **Booking.com / agoda アフィリエイト**（インバウンド対応・将来）
 
 ### ★★★ Pro プラン（買い切り or サブスク）
 

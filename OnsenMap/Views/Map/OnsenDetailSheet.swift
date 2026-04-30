@@ -193,6 +193,9 @@ struct OnsenDetailSheet: View {
                             }
                         }
 
+                        // ─── 近くの宿（楽天トラベル アフィリエイト） ───
+                        NearbyHotelsSection(onsen: onsen)
+
                         // ─── 広告 ───
                         AdRectangleView()
                             .padding(.vertical, 8)
@@ -316,6 +319,214 @@ struct VisitSummaryRow: View {
             Spacer()
             StarRatingView(rating: visit.rating, size: 12)
         }
+    }
+}
+
+// MARK: - Nearby Hotels Section（楽天トラベル アフィリエイト）
+
+struct NearbyHotelsSection: View {
+    let onsen: Onsen
+    @State private var hotels: [RakutenHotel] = []
+    @State private var loadState: LoadState = .idle
+
+    enum LoadState {
+        case idle
+        case loading
+        case loaded
+        case empty
+        case failed(String)
+        case notConfigured
+    }
+
+    var body: some View {
+        DetailSection(title: "この温泉の近くに泊まる") {
+            switch loadState {
+            case .idle:
+                Button {
+                    Task { await load() }
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "bed.double.fill")
+                            .foregroundStyle(.white)
+                            .frame(width: 28, height: 28)
+                            .background(Color(red: 0.75, green: 0.0, blue: 0.0))
+                            .clipShape(Circle())
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("近くの宿を探す")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .foregroundStyle(.primary)
+                            Text("楽天トラベルで周辺3km以内を検索")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .foregroundStyle(.secondary)
+                            .font(.caption)
+                    }
+                    .padding(.vertical, 4)
+                }
+                .buttonStyle(.plain)
+
+            case .loading:
+                HStack(spacing: 8) {
+                    ProgressView().scaleEffect(0.8)
+                    Text("検索中...").font(.caption).foregroundStyle(.secondary)
+                }
+                .padding(.vertical, 6)
+
+            case .loaded:
+                VStack(spacing: 8) {
+                    ForEach(hotels) { hotel in
+                        HotelRow(hotel: hotel)
+                        if hotel.id != hotels.last?.id { Divider() }
+                    }
+                }
+                fallbackLink
+                attributionFooter
+
+            case .empty:
+                Text("半径3km以内に楽天トラベル掲載の宿が見つかりませんでした。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                fallbackLink
+                attributionFooter
+
+            case .failed(let msg):
+                Text("一覧の取得に失敗しました: \(msg)")
+                    .font(.caption2)
+                    .foregroundStyle(.red)
+                fallbackLink
+                attributionFooter
+
+            case .notConfigured:
+                Text("楽天トラベルで「\(onsen.name)」付近の宿を検索できます。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                fallbackLink
+                attributionFooter
+            }
+        }
+    }
+
+    // MARK: - Fallback / Attribution
+    private var fallbackLink: some View {
+        Link(destination: RakutenTravelService.shared.fallbackSearchURL(for: onsen)) {
+            HStack {
+                Image(systemName: "arrow.up.right.square.fill")
+                Text("楽天トラベルで「\(onsen.name)」を探す")
+                    .fontWeight(.semibold)
+                    .lineLimit(1)
+                Spacer()
+            }
+            .font(.subheadline)
+            .foregroundStyle(.white)
+            .padding(.vertical, 10)
+            .padding(.horizontal, 12)
+            .background(Color(red: 0.75, green: 0.0, blue: 0.0))
+            .cornerRadius(10)
+        }
+        .padding(.top, 6)
+    }
+
+    private var attributionFooter: some View {
+        Text("提供: 楽天トラベル")
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+            .padding(.top, 2)
+    }
+
+    // MARK: - Loader
+    private func load() async {
+        guard AffiliateConfig.isRakutenConfigured else {
+            loadState = .notConfigured
+            return
+        }
+        loadState = .loading
+        do {
+            let result = try await RakutenTravelService.shared.searchHotels(
+                near: onsen.coordinate,
+                radiusKm: 3.0,
+                hits: 10
+            )
+            hotels = result
+            loadState = result.isEmpty ? .empty : .loaded
+        } catch {
+            loadState = .failed(error.localizedDescription)
+        }
+    }
+}
+
+// MARK: - Hotel Row
+
+struct HotelRow: View {
+    let hotel: RakutenHotel
+
+    var body: some View {
+        Link(destination: hotel.infoUrl) {
+            HStack(alignment: .top, spacing: 10) {
+                AsyncImage(url: hotel.thumbnailUrl ?? hotel.imageUrl) { phase in
+                    switch phase {
+                    case .success(let img):
+                        img.resizable().scaledToFill()
+                    case .empty:
+                        ProgressView().scaleEffect(0.7)
+                    default:
+                        Image(systemName: "bed.double.fill")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .frame(width: 64, height: 64)
+                .background(Color(.systemGray6))
+                .clipped()
+                .cornerRadius(6)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(hotel.name)
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundStyle(.primary)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+
+                    if let avg = hotel.reviewAverage,
+                       let cnt = hotel.reviewCount, cnt > 0 {
+                        HStack(spacing: 3) {
+                            Image(systemName: "star.fill")
+                                .font(.caption2)
+                                .foregroundStyle(.yellow)
+                            Text(String(format: "%.1f", avg))
+                                .font(.caption)
+                                .foregroundStyle(.primary)
+                            Text("(\(cnt))")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    if let charge = hotel.minCharge {
+                        Text("¥\(charge.formatted())〜 / 室")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.orange)
+                    } else if let access = hotel.access, !access.isEmpty {
+                        Text(access)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                }
+
+                Spacer(minLength: 4)
+
+                Image(systemName: "chevron.right")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
+            }
+            .padding(.vertical, 2)
+        }
+        .buttonStyle(.plain)
     }
 }
 
