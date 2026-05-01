@@ -179,15 +179,6 @@ struct AddVisitView: View {
                         Label(store.isPro ? "写真を選ぶ（無制限）" : "写真を選ぶ（最大5枚）",
                               systemImage: "photo.on.rectangle.angled")
                     }
-                    if !store.isPro {
-                        Button {
-                            showingPaywall = true
-                        } label: {
-                            Label("Pro で写真を無制限に", systemImage: "crown.fill")
-                                .font(.caption)
-                                .foregroundStyle(.orange)
-                        }
-                    }
                     .onChange(of: selectedPhotoItems) { _, items in
                         Task {
                             selectedPhotos = []
@@ -197,6 +188,16 @@ struct AddVisitView: View {
                                     selectedPhotos.append(img)
                                 }
                             }
+                        }
+                    }
+
+                    if !store.isPro {
+                        Button {
+                            showingPaywall = true
+                        } label: {
+                            Label("Pro で写真を無制限に", systemImage: "crown.fill")
+                                .font(.caption)
+                                .foregroundStyle(.orange)
                         }
                     }
 

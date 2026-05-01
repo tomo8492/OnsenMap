@@ -345,8 +345,10 @@ final class OnsenViewModel: ObservableObject {
     /// 全訪問記録を CSV としてエクスポートし、一時ファイルの URL を返す。
     func exportVisitsAsCSV() -> URL? {
         let header = "日付,温泉名,評価,気分,天気,入浴時間(分),同行者,メモ"
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withFullDate, .withTime, .withDashSeparatorInDate, .withColonSeparatorInTime]
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm"
+        formatter.timeZone = TimeZone(identifier: "Asia/Tokyo")
+        formatter.locale = Locale(identifier: "ja_JP")
 
         var lines: [String] = [header]
         for v in visits.sorted(by: { $0.date < $1.date }) {

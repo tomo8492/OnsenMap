@@ -1,5 +1,4 @@
 import Foundation
-import CoreLocation
 
 // MARK: - Jalan Affiliate Config 拡張
 extension AffiliateConfig {
@@ -8,16 +7,6 @@ extension AffiliateConfig {
     /// 取得: https://affiliate.valuecommerce.ne.jp/  もしくは https://af.recruit.co.jp/
     /// 形式例: ValueCommerce → "sid=12345&pid=67890"
     static let valueCommerceJalanQuery: String? = nil  // 例: "sid=3000000&pid=880000000"
-
-    /// じゃらん API（リクルート Webサービス）の API キー
-    /// 取得: https://webservice.recruit.co.jp/register/
-    /// API キーがあれば SimpleHotelSearch 風にホテル一覧を取得できる（v1 では URL のみ）
-    static let jalanApiKey: String? = nil
-
-    static var isJalanAffiliateConfigured: Bool {
-        guard let q = valueCommerceJalanQuery, !q.isEmpty else { return false }
-        return true
-    }
 }
 
 // MARK: - Jalan Travel Service
